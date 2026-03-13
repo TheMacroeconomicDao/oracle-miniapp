@@ -1,0 +1,1474 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Oracle — Command Center</title>
+
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- D3.js v7 for knowledge graph -->
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+
+  <style>
+    /* ============================================================
+       ORACLE COMMAND CENTER
+       Dark cyberpunk + Apple HIG design system
+    ============================================================ */
+
+    *, *::before, *::after {
+      margin: 0; padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --bg:         #080810;
+      --bg-card:    rgba(255,255,255,0.035);
+      --bg-card-hi: rgba(255,255,255,0.065);
+      --bg-input:   rgba(255,255,255,0.07);
+      --bg-modal:   #0D0D1C;
+      --border:     rgba(255,255,255,0.07);
+      --bfocus:     rgba(0,122,255,0.55);
+
+      --t1: #FFFFFF;
+      --t2: rgba(255,255,255,0.55);
+      --t3: rgba(255,255,255,0.27);
+
+      --blue:   #007AFF;
+      --green:  #34C759;
+      --purple: #BF5AF2;
+      --orange: #FF9F0A;
+      --red:    #FF453A;
+      --cyan:   #64D2FF;
+      --yellow: #FFD60A;
+
+      --glow-b: 0 0 20px rgba(0,122,255,0.45),   0 0 40px rgba(0,122,255,0.2);
+      --glow-g: 0 0 20px rgba(52,199,89,0.45),   0 0 40px rgba(52,199,89,0.2);
+      --glow-p: 0 0 20px rgba(191,90,242,0.45),  0 0 40px rgba(191,90,242,0.2);
+      --glow-c: 0 0 20px rgba(100,210,255,0.45), 0 0 40px rgba(100,210,255,0.2);
+
+      --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 22px;
+      --sp: 16px; --sp-sm: 8px; --sp-lg: 24px;
+      --nav-h: 82px;
+      --t-fast: 150ms ease;
+      --t-mid:  220ms ease;
+      --t-spring: 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--t1);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Subtle grid pattern */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    #app { position: relative; width: 100%; height: 100%; overflow: hidden; z-index: 1; }
+
+    /* ===========================================
+       SCREENS
+    =========================================== */
+
+    .screen {
+      position: absolute; inset: 0;
+      bottom: var(--nav-h);
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--t-mid);
+      z-index: 10;
+    }
+    .screen.active { opacity: 1; pointer-events: all; }
+
+    .screen-header {
+      padding: 14px var(--sp) 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border);
+      background: rgba(8,8,16,0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    .screen-title   { font-size: 19px; font-weight: 700; letter-spacing: -0.4px; }
+    .screen-sub     { font-size: 11px; color: var(--t3); letter-spacing: 0.04em; text-transform: uppercase; margin-top: 1px; }
+
+    .scroll-content {
+      flex: 1;
+      overflow-y: auto; overflow-x: hidden;
+      padding: var(--sp);
+      padding-bottom: calc(var(--sp) + 4px);
+      -webkit-overflow-scrolling: touch;
+    }
+    .scroll-content::-webkit-scrollbar { display: none; }
+
+    /* ===========================================
+       BOTTOM NAV
+    =========================================== */
+
+    #bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: var(--nav-h);
+      background: rgba(8,8,16,0.92);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      padding-top: 8px;
+      z-index: 100;
+    }
+
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 0;
+      cursor: pointer;
+      min-height: 44px;
+      position: relative;
+      transition: all var(--t-mid);
+    }
+
+    .nav-icon  { font-size: 22px; line-height: 1; transition: transform var(--t-spring); }
+    .nav-label { font-size: 10px; font-weight: 500; color: var(--t3); transition: color var(--t-mid); letter-spacing: 0.02em; }
+    .nav-dot   {
+      position: absolute; bottom: 2px;
+      width: 4px; height: 4px; border-radius: 50%;
+      background: var(--blue);
+      opacity: 0;
+      transition: opacity var(--t-mid);
+      box-shadow: var(--glow-b);
+    }
+
+    .nav-item.active .nav-label  { color: var(--blue); }
+    .nav-item.active .nav-icon   { transform: scale(1.15); }
+    .nav-item.active .nav-dot    { opacity: 1; }
+
+    /* ===========================================
+       CARDS
+    =========================================== */
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: var(--sp);
+      transition: background var(--t-fast), transform var(--t-fast);
+    }
+    .card:active { background: var(--bg-card-hi); transform: scale(0.98); }
+
+    /* ===========================================
+       STATUS BADGES
+    =========================================== */
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: 100px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .bdot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+    .b-idle    { background: rgba(255,255,255,0.07); color: var(--t2); }
+    .b-idle    .bdot { background: var(--t3); }
+
+    .b-run     { background: rgba(0,122,255,0.14); color: var(--blue); }
+    .b-run     .bdot { background: var(--blue); box-shadow: var(--glow-b); animation: blink 1.4s ease-in-out infinite; }
+
+    .b-ok      { background: rgba(52,199,89,0.14); color: var(--green); }
+    .b-ok      .bdot { background: var(--green); box-shadow: var(--glow-g); }
+
+    .b-err     { background: rgba(255,69,58,0.14); color: var(--red); }
+    .b-err     .bdot { background: var(--red); }
+
+    .b-wait    { background: rgba(255,159,10,0.14); color: var(--orange); }
+    .b-wait    .bdot { background: var(--orange); }
+
+    @keyframes blink { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.4; transform:scale(0.65); } }
+
+    /* ===========================================
+       BUTTONS
+    =========================================== */
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      border-radius: var(--r-md);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+      border: none; outline: none;
+      transition: all var(--t-mid);
+      min-height: 44px;
+    }
+
+    .btn-primary {
+      background: var(--blue); color: #fff;
+      box-shadow: 0 4px 16px rgba(0,122,255,0.35);
+    }
+    .btn-primary:active { background: #0062CC; transform: scale(0.96); box-shadow: none; }
+
+    .btn-ghost {
+      background: var(--bg-card-hi); color: var(--t1);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:active { background: rgba(255,255,255,0.1); transform: scale(0.96); }
+
+    .btn-sm { padding: 7px 12px; font-size: 13px; min-height: 36px; border-radius: var(--r-sm); }
+    .btn-icon { width: 44px; height: 44px; padding: 0; border-radius: var(--r-md); }
+
+    /* FAB */
+    .fab {
+      position: fixed;
+      bottom: calc(var(--nav-h) + 14px);
+      right: 16px;
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      background: var(--blue);
+      color: #fff; font-size: 24px;
+      border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: var(--glow-b), 0 4px 20px rgba(0,0,0,0.5);
+      z-index: 50;
+      transition: all var(--t-spring);
+    }
+    .fab:active { transform: scale(0.9); box-shadow: none; }
+
+    /* ===========================================
+       PROGRESS BAR
+    =========================================== */
+
+    .progress { width: 100%; height: 4px; background: rgba(255,255,255,0.07); border-radius: 100px; overflow: hidden; }
+    .prog-fill { height: 100%; border-radius: 100px; transition: width 1s ease; }
+    .prog-blue   { background: linear-gradient(90deg,#007AFF,#64D2FF); box-shadow: 0 0 8px rgba(0,122,255,0.6); }
+    .prog-green  { background: linear-gradient(90deg,#34C759,#30D158); box-shadow: 0 0 8px rgba(52,199,89,0.6); }
+    .prog-orange { background: linear-gradient(90deg,#FF9500,#FF6B00); box-shadow: 0 0 8px rgba(255,149,0,0.6); }
+
+    /* ===========================================
+       SECTION LABEL
+    =========================================== */
+
+    .section { margin-bottom: var(--sp-lg); }
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--t3);
+      margin-bottom: 10px;
+      padding-left: 2px;
+    }
+
+    /* ===========================================
+       SCREEN 1 — KNOWLEDGE GRAPH
+    =========================================== */
+
+    #graph-container { flex: 1; position: relative; overflow: hidden; }
+    #graph-svg { width: 100%; height: 100%; }
+
+    .graph-legend {
+      position: absolute; left: 12px; top: 12px;
+      background: rgba(8,8,16,0.82);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: 10px 13px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    .legend-row { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--t2); margin-bottom: 5px; }
+    .legend-row:last-child { margin-bottom: 0; }
+    .ldot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+    .zoom-controls {
+      position: absolute; right: 12px; top: 12px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .zoom-btn {
+      width: 36px; height: 36px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      color: var(--t1);
+      font-size: 20px; font-weight: 300;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(10px);
+      transition: all var(--t-fast);
+    }
+    .zoom-btn:active { background: rgba(255,255,255,0.14); transform: scale(0.93); }
+
+    /* Node info slide panel */
+    #node-panel {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(10,10,20,0.96);
+      border-top: 1px solid var(--border);
+      border-radius: var(--r-xl) var(--r-xl) 0 0;
+      padding: 16px var(--sp) 20px;
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      transform: translateY(100%);
+      transition: transform 0.32s cubic-bezier(0.34,1.56,0.64,1);
+      z-index: 30;
+    }
+    #node-panel.open { transform: translateY(0); }
+    .panel-handle { width: 36px; height: 4px; background: rgba(255,255,255,0.14); border-radius: 100px; margin: 0 auto 16px; }
+    .panel-title  { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+    .panel-meta   { font-size: 13px; color: var(--t2); margin-bottom: 12px; }
+    .panel-desc   { font-size: 13px; color: var(--t2); line-height: 1.55; margin-bottom: 14px; }
+    .tag-row      { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+    .tag          { padding: 3px 9px; background: rgba(255,255,255,0.07); border-radius: 100px; font-size: 12px; color: var(--t2); }
+    .panel-btns   { display: flex; gap: 8px; }
+
+    /* ===========================================
+       SCREEN 2 — AGENTS
+    =========================================== */
+
+    .group-card { position: relative; overflow: hidden; margin-bottom: 10px; }
+    .group-accent {
+      position: absolute; top: 0; left: 0;
+      width: 3px; height: 100%;
+    }
+    .group-body { padding-left: 10px; }
+    .group-name { font-size: 16px; font-weight: 700; }
+    .group-info { font-size: 12px; color: var(--t3); margin: 2px 0 10px; }
+
+    .avatars { display: flex; margin-bottom: 10px; }
+    .avatar {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      border: 2px solid var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+      margin-left: -5px;
+    }
+    .avatar:first-child { margin-left: 0; }
+
+    .agent-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px var(--sp);
+      margin-bottom: 8px;
+    }
+    .agent-icon-wrap {
+      width: 44px; height: 44px;
+      border-radius: var(--r-md);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; flex-shrink: 0;
+    }
+    .agent-info { flex: 1; min-width: 0; }
+    .agent-name { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+    .agent-domain { font-size: 12px; color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* ===========================================
+       SCREEN 3 — MONITOR
+    =========================================== */
+
+    .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .metric-card { padding: 14px; display: flex; flex-direction: column; gap: 5px; }
+    .metric-label { font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--t3); }
+    .metric-value { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    .metric-sub   { font-size: 11px; color: var(--t3); }
+
+    .status-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .status-row:last-child { border-bottom: none; }
+    .sdot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .sdot.idle    { background: rgba(255,255,255,0.18); }
+    .sdot.running { background: var(--blue); box-shadow: var(--glow-b); animation: blink 1.4s ease-in-out infinite; }
+    .sdot.active  { background: var(--green); box-shadow: var(--glow-g); }
+    .sdot.error   { background: var(--red); }
+
+    .timeline-item { display: flex; gap: 12px; padding: 10px 0; position: relative; }
+    .tl-line {
+      position: absolute;
+      left: 15px; top: 32px; bottom: -10px;
+      width: 1px;
+      background: var(--border);
+    }
+    .tl-dot {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .tl-body { flex: 1; }
+    .tl-title { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+    .tl-time  { font-size: 11px; color: var(--t3); }
+    .tl-desc  { font-size: 12px; color: var(--t2); line-height: 1.5; margin-top: 4px; }
+
+    /* ===========================================
+       SCREEN 4 — TASKS
+    =========================================== */
+
+    .launch-hero {
+      background: linear-gradient(135deg, rgba(0,122,255,0.09), rgba(100,210,255,0.04));
+      border: 1px solid rgba(0,122,255,0.18);
+      border-radius: var(--r-xl);
+      padding: 24px 20px;
+      text-align: center;
+      margin-bottom: var(--sp-lg);
+    }
+    .hero-icon  { font-size: 44px; margin-bottom: 12px; }
+    .hero-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+    .hero-desc  { font-size: 14px; color: var(--t2); line-height: 1.5; margin-bottom: 18px; }
+
+    .task-card { padding: 13px var(--sp); margin-bottom: 8px; }
+    .task-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+    .task-name { font-size: 15px; font-weight: 600; flex: 1; min-width: 0; margin-right: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .task-meta { font-size: 12px; color: var(--t3); margin-bottom: 8px; }
+    .task-prog-head { display: flex; justify-content: space-between; font-size: 11px; color: var(--t3); margin-bottom: 5px; }
+
+    /* ===========================================
+       MODAL
+    =========================================== */
+
+    #modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.72);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 200;
+      display: flex; align-items: flex-end;
+      opacity: 0; pointer-events: none;
+      transition: opacity var(--t-mid);
+    }
+    #modal-overlay.open { opacity: 1; pointer-events: all; }
+
+    .modal {
+      width: 100%;
+      background: var(--bg-modal);
+      border-radius: var(--r-xl) var(--r-xl) 0 0;
+      padding: 16px var(--sp) 28px;
+      border-top: 1px solid var(--border);
+      transform: translateY(100%);
+      transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+      max-height: 88vh;
+      overflow-y: auto;
+      display: none;
+    }
+    #modal-overlay.open .modal { transform: translateY(0); }
+
+    .mhandle { width: 36px; height: 4px; background: rgba(255,255,255,0.13); border-radius: 100px; margin: 0 auto 18px; }
+    .mtitle  { font-size: 20px; font-weight: 700; margin-bottom: 5px; }
+    .msub    { font-size: 14px; color: var(--t2); line-height: 1.5; margin-bottom: 22px; }
+
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--t2); margin-bottom: 8px; }
+    .form-input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      padding: 12px;
+      font-family: inherit; font-size: 15px;
+      color: var(--t1);
+      outline: none;
+      transition: border-color var(--t-mid);
+    }
+    .form-input:focus { border-color: var(--bfocus); }
+    .form-textarea { resize: none; height: 100px; }
+
+    .agent-pick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .agent-pick-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px;
+      border-radius: var(--r-md);
+      background: var(--bg-card);
+      border: 1.5px solid var(--border);
+      cursor: pointer;
+      transition: all var(--t-mid);
+    }
+    .agent-pick-item.selected { border-color: var(--blue); background: rgba(0,122,255,0.1); }
+    .agent-pick-icon { font-size: 18px; }
+    .agent-pick-name { font-size: 13px; font-weight: 600; }
+
+    .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
+    .modal-actions .btn { flex: 1; }
+
+    /* ===========================================
+       DETAIL ROWS
+    =========================================== */
+
+    .detail-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-key   { color: var(--t2); }
+    .detail-value { font-weight: 500; }
+
+    /* ===========================================
+       GRADIENT / UTILS
+    =========================================== */
+
+    .grad-text {
+      background: linear-gradient(135deg, var(--blue), var(--cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .sep { height: 1px; background: var(--border); margin: 2px 0; }
+
+    .flex-row     { display: flex; align-items: center; }
+    .flex-between { display: flex; align-items: center; justify-content: space-between; }
+
+    .gap-sm { gap: 8px; }
+    .gap-md { gap: 12px; }
+
+    .mb-sm { margin-bottom: 8px; }
+    .mb-md { margin-bottom: 16px; }
+    .mb-lg { margin-bottom: 24px; }
+
+    /* ===========================================
+       LOADING SPLASH
+    =========================================== */
+
+    #loading {
+      position: fixed; inset: 0; z-index: 999;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      transition: opacity 0.45s ease;
+    }
+    #loading.gone { opacity: 0; pointer-events: none; }
+
+    .load-logo  { font-size: 52px; margin-bottom: 14px; animation: float 2s ease-in-out infinite; }
+    .load-title { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 6px; }
+    .load-sub   { font-size: 13px; color: var(--t2); margin-bottom: 32px; }
+    .load-bar   { width: 120px; height: 2px; background: rgba(255,255,255,0.1); border-radius: 100px; overflow: hidden; }
+    .load-fill  { height: 100%; width: 0%; background: var(--blue); border-radius: 100px; transition: width 1.5s ease; }
+
+    @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+  </style>
+</head>
+
+<body>
+<div id="app">
+
+  <!-- ======== LOADING ======== -->
+  <div id="loading">
+    <div class="load-logo">🔬</div>
+    <div class="load-title">Oracle</div>
+    <div class="load-sub">Command Center · Gybernaty R&D</div>
+    <div class="load-bar"><div class="load-fill" id="load-fill"></div></div>
+  </div>
+
+  <!-- ======== SCREEN: GRAPH ======== -->
+  <div class="screen active" id="screen-graph">
+    <div class="screen-header">
+      <div>
+        <div class="screen-title">🌐 База знаний</div>
+        <div class="screen-sub">Граф связей · 17 узлов · 21 связь</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="graph-reset">Сброс</button>
+    </div>
+
+    <div id="graph-container">
+      <svg id="graph-svg"></svg>
+
+      <div class="graph-legend">
+        <div class="legend-row"><div class="ldot" style="background:#BF5AF2;box-shadow:0 0 8px rgba(191,90,242,0.7)"></div>Теория</div>
+        <div class="legend-row"><div class="ldot" style="background:#007AFF;box-shadow:0 0 8px rgba(0,122,255,0.7)"></div>Проекты</div>
+        <div class="legend-row"><div class="ldot" style="background:#34C759;box-shadow:0 0 8px rgba(52,199,89,0.7)"></div>Исследования</div>
+        <div class="legend-row"><div class="ldot" style="background:#64D2FF;box-shadow:0 0 8px rgba(100,210,255,0.7)"></div>AI Агенты</div>
+      </div>
+
+      <div class="zoom-controls">
+        <button class="zoom-btn" id="zoom-in">+</button>
+        <button class="zoom-btn" id="zoom-out">−</button>
+      </div>
+    </div>
+
+    <!-- Node info panel -->
+    <div id="node-panel">
+      <div class="panel-handle"></div>
+      <div id="panel-body"></div>
+    </div>
+  </div>
+
+  <!-- ======== SCREEN: AGENTS ======== -->
+  <div class="screen" id="screen-agents">
+    <div class="screen-header">
+      <div>
+        <div class="screen-title">🤖 Агенты</div>
+        <div class="screen-sub" id="agents-sub">2 группы · 5 агентов</div>
+      </div>
+    </div>
+
+    <div class="scroll-content">
+      <div class="section">
+        <div class="section-label">Группы агентов</div>
+        <div id="groups-list"></div>
+      </div>
+      <div class="section">
+        <div class="section-label">Все агенты</div>
+        <div id="agents-list"></div>
+      </div>
+    </div>
+
+    <button class="fab" id="fab-group">＋</button>
+  </div>
+
+  <!-- ======== SCREEN: MONITOR ======== -->
+  <div class="screen" id="screen-monitor">
+    <div class="screen-header">
+      <div>
+        <div class="screen-title">📊 Монитор</div>
+        <div class="screen-sub">Обновлено только что</div>
+      </div>
+      <span class="badge b-ok"><span class="bdot"></span>Live</span>
+    </div>
+
+    <div class="scroll-content">
+      <!-- Quick metrics -->
+      <div class="section">
+        <div class="section-label">Система</div>
+        <div class="metrics-grid">
+          <div class="card metric-card">
+            <div class="metric-label">Модель</div>
+            <div class="metric-value grad-text" style="font-size:15px;margin-top:2px">Sonnet 4.6</div>
+            <div class="metric-sub">Anthropic Claude</div>
+          </div>
+          <div class="card metric-card">
+            <div class="metric-label">Контекст</div>
+            <div class="metric-value" style="color:var(--blue)" id="ctx-val">49%</div>
+            <div class="metric-sub">~100K токенов</div>
+          </div>
+        </div>
+        <div class="metrics-grid">
+          <div class="card metric-card">
+            <div class="metric-label">STT</div>
+            <div class="metric-value" style="color:var(--green);font-size:17px">✓ Online</div>
+            <div class="metric-sub">Deepgram nova-3</div>
+          </div>
+          <div class="card metric-card">
+            <div class="metric-label">TTS</div>
+            <div class="metric-value" style="color:var(--green);font-size:17px">✓ Online</div>
+            <div class="metric-sub">Google TTS · RU</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Context bar -->
+      <div class="section">
+        <div class="card" style="padding:14px">
+          <div class="flex-between mb-sm">
+            <span style="font-size:14px;font-weight:600">Потребление контекста</span>
+            <span style="font-size:12px;color:var(--t2)">49 152 / 100 000</span>
+          </div>
+          <div class="progress">
+            <div class="prog-fill prog-blue" style="width:0%" id="ctx-bar"></div>
+          </div>
+          <div class="flex-between" style="margin-top:8px">
+            <span style="font-size:11px;color:var(--t3)">Уровень: безопасно</span>
+            <span style="font-size:11px;color:var(--t3)">Предел 90%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent statuses -->
+      <div class="section">
+        <div class="section-label">Статус агентов</div>
+        <div class="card" style="padding:8px 14px">
+          <div id="monitor-agents"></div>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div class="section">
+        <div class="section-label">Timeline событий</div>
+        <div id="timeline"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== SCREEN: TASKS ======== -->
+  <div class="screen" id="screen-tasks">
+    <div class="screen-header">
+      <div>
+        <div class="screen-title">🎯 Задачи</div>
+        <div class="screen-sub">Оркестрация агентов</div>
+      </div>
+    </div>
+
+    <div class="scroll-content">
+      <div class="launch-hero">
+        <div class="hero-icon">🚀</div>
+        <div class="hero-title">Запустить команду</div>
+        <div class="hero-desc">Выберите группу агентов и поставьте задачу — Oracle оркестрирует параллельное выполнение.</div>
+        <button class="btn btn-primary" id="btn-launch" style="width:100%;font-size:15px">⚡ Запустить группу</button>
+      </div>
+
+      <div class="section">
+        <div class="section-label">История задач</div>
+        <div id="tasks-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== BOTTOM NAV ======== -->
+  <nav id="bottom-nav">
+    <div class="nav-item active" data-s="graph">
+      <div class="nav-icon">🌐</div>
+      <div class="nav-label">Граф</div>
+      <div class="nav-dot"></div>
+    </div>
+    <div class="nav-item" data-s="agents">
+      <div class="nav-icon">🤖</div>
+      <div class="nav-label">Агенты</div>
+      <div class="nav-dot"></div>
+    </div>
+    <div class="nav-item" data-s="monitor">
+      <div class="nav-icon">📊</div>
+      <div class="nav-label">Монитор</div>
+      <div class="nav-dot"></div>
+    </div>
+    <div class="nav-item" data-s="tasks">
+      <div class="nav-icon">🎯</div>
+      <div class="nav-label">Задачи</div>
+      <div class="nav-dot"></div>
+    </div>
+  </nav>
+
+  <!-- ======== MODALS ======== -->
+  <div id="modal-overlay">
+
+    <!-- Create Group -->
+    <div class="modal" id="m-create-group">
+      <div class="mhandle"></div>
+      <div class="mtitle">Новая группа</div>
+      <div class="msub">Создайте команду агентов для совместного выполнения задач</div>
+      <div class="form-group">
+        <label class="form-label">Название группы</label>
+        <input class="form-input" type="text" id="new-group-name" placeholder="Например: Security Team">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Выберите агентов</label>
+        <div class="agent-pick-grid" id="agent-pick-grid"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="cancel-group">Отмена</button>
+        <button class="btn btn-primary" id="save-group">✓ Создать</button>
+      </div>
+    </div>
+
+    <!-- Launch Task -->
+    <div class="modal" id="m-launch">
+      <div class="mhandle"></div>
+      <div class="mtitle">Новая задача</div>
+      <div class="msub">Выберите группу и опишите задачу для оркестрации</div>
+      <div class="form-group">
+        <label class="form-label">Группа агентов</label>
+        <select class="form-input" id="task-group-sel" style="cursor:pointer"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Описание задачи</label>
+        <textarea class="form-input form-textarea" id="task-desc"
+          placeholder="Например: Провести полный аудит безопасности репозитория openclaw-k8s перед деплоем..."></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="cancel-launch">Отмена</button>
+        <button class="btn btn-primary" id="run-task">⚡ Запустить</button>
+      </div>
+    </div>
+
+    <!-- Detail -->
+    <div class="modal" id="m-detail">
+      <div class="mhandle"></div>
+      <div id="detail-body"></div>
+      <div class="modal-actions" style="margin-top:14px">
+        <button class="btn btn-ghost" id="close-detail" style="flex:1">Закрыть</button>
+      </div>
+    </div>
+
+  </div><!-- /modal-overlay -->
+
+</div><!-- /app -->
+
+<script>
+/* ================================================================
+   ORACLE COMMAND CENTER — Application Logic
+   Architecture: Vanilla JS, D3.js v7, Telegram WebApp SDK
+================================================================ */
+
+// ── Telegram WebApp init ─────────────────────────────────────────
+const tg = window.Telegram?.WebApp;
+if (tg) {
+  tg.ready();
+  tg.expand();
+  tg.setHeaderColor?.('#080810');
+  tg.setBackgroundColor?.('#080810');
+}
+const haptic = {
+  light:   () => tg?.HapticFeedback?.impactOccurred('light'),
+  medium:  () => tg?.HapticFeedback?.impactOccurred('medium'),
+  select:  () => tg?.HapticFeedback?.selectionChanged(),
+  success: () => tg?.HapticFeedback?.notificationOccurred('success'),
+  error:   () => tg?.HapticFeedback?.notificationOccurred('error'),
+};
+
+// ── Data ─────────────────────────────────────────────────────────
+const AGENTS = [
+  { id:'codeguard', name:'CodeGuard',      icon:'🛡️', color:'#007AFF',
+    domain:'Статический анализ кода',
+    desc:'OWASP Top 10, инъекции, хардкодные секреты, небезопасные паттерны',
+    status:'idle', lastRun:'2 ч. назад', findings:3 },
+  { id:'secrets',   name:'SecretsWatchdog', icon:'🔑', color:'#FF9F0A',
+    domain:'Утечки секретов',
+    desc:'Credentials, env handling, token hygiene, git history scanning',
+    status:'idle', lastRun:'2 ч. назад', findings:2 },
+  { id:'cicd',      name:'CICDGuardian',   icon:'⚙️', color:'#34C759',
+    domain:'GitHub Actions',
+    desc:'Injection via inputs, missing permissions, unpinned actions, cleanup',
+    status:'idle', lastRun:'2 ч. назад', findings:5 },
+  { id:'infra',     name:'InfraSentinel',  icon:'🌐', color:'#BF5AF2',
+    domain:'Kubernetes',
+    desc:'RBAC, pod security, network policies, resource limits, secret mgmt',
+    status:'running', lastRun:'Сейчас', findings:0 },
+  { id:'vuln',      name:'VulnReporter',   icon:'📋', color:'#64D2FF',
+    domain:'Отчёты',
+    desc:'Консолидация findings, GitHub Issues, vault storage, уведомления',
+    status:'idle', lastRun:'2 ч. назад', findings:0 },
+];
+
+let GROUPS = [
+  { id:'sg',    name:'Security Team', icon:'🔐', color:'#FF453A',
+    agents:['codeguard','secrets','cicd','infra','vuln'],
+    status:'partial', lastTask:'Full security audit openclaw-k8s', lastRun:'2 ч. назад' },
+  { id:'qs',    name:'Quick Scan',    icon:'⚡', color:'#007AFF',
+    agents:['codeguard','secrets'],
+    status:'idle', lastTask:'PR code review #42', lastRun:'1 день назад' },
+];
+
+let TASKS = [
+  { id:'t1', name:'Full security audit openclaw-k8s', group:'Security Team', gid:'sg',
+    status:'partial', progress:80, time:'2 ч. назад', findings:10,
+    results:[
+      {a:'CodeGuard',      s:'done',    f:3, sev:'HIGH'},
+      {a:'SecretsWatchdog',s:'done',    f:2, sev:'MEDIUM'},
+      {a:'CICDGuardian',   s:'done',    f:5, sev:'CRITICAL'},
+      {a:'InfraSentinel',  s:'running', f:0, sev:'—'},
+      {a:'VulnReporter',   s:'waiting', f:0, sev:'—'},
+    ]},
+  { id:'t2', name:'PR code review #42', group:'Quick Scan', gid:'qs',
+    status:'done', progress:100, time:'1 день назад', findings:1,
+    results:[
+      {a:'CodeGuard',      s:'done', f:1, sev:'LOW'},
+      {a:'SecretsWatchdog',s:'done', f:0, sev:'—'},
+    ]},
+  { id:'t3', name:'InfraSentinel spot-check', group:'Quick Scan', gid:'qs',
+    status:'done', progress:100, time:'3 дня назад', findings:0,
+    results:[
+      {a:'InfraSentinel', s:'done', f:0, sev:'—'},
+    ]},
+];
+
+const TIMELINE_DATA = [
+  { icon:'🛡️', bg:'rgba(0,122,255,0.14)',
+    title:'CodeGuard завершён', time:'2 ч. назад',
+    desc:'3 находки (1 HIGH, 2 MEDIUM). Shell injection: deploy.sh:47.' },
+  { icon:'🔑', bg:'rgba(255,159,10,0.14)',
+    title:'SecretsWatchdog завершён', time:'2 ч. назад',
+    desc:'2 находки: token в URL git remote, .env попал в git history.' },
+  { icon:'⚙️', bg:'rgba(52,199,89,0.14)',
+    title:'CICDGuardian — 5 уязвимостей', time:'2 ч. назад',
+    desc:'CRITICAL: github.event.inputs.* используется в shell напрямую без env: wrap.' },
+  { icon:'🌐', bg:'rgba(191,90,242,0.14)',
+    title:'InfraSentinel запущен', time:'Сейчас',
+    desc:'Анализ K3s namespace openclaw: RBAC, pod security, network policies...' },
+  { icon:'🔬', bg:'rgba(100,210,255,0.14)',
+    title:'Oracle — Security Audit начат', time:'2 ч. назад',
+    desc:'Оркестрация Security Team: 5 агентов запущены в параллель.' },
+];
+
+// D3 graph data — vault knowledge nodes
+const GRAPH = {
+  nodes: [
+    // Theory — purple
+    { id:'cybersocium',  label:'CyberSocium',    cat:'theory',   r:16, desc:'Теория киберсоциальной экономики v2.0 (84K слов)',   tags:['theory','economics','formal'] },
+    { id:'dao-design',   label:'DAO Design',      cat:'theory',   r:13, desc:'Механизмы DAO-управления и голосования',             tags:['governance','voting','PMIP'] },
+    { id:'tokenomics',   label:'Tokenomics',      cat:'theory',   r:12, desc:'GBR токен, SES-механизм, распределение',            tags:['GBR','BEP-20','BSC'] },
+    { id:'csc-model',    label:'CSC Model',       cat:'theory',   r:11, desc:'Cybersocial Corporation ⟨N,R,P,G,M,E⟩',            tags:['formal','model','six-tuple'] },
+
+    // Projects — blue
+    { id:'gyber-dao',    label:'TheMacroDAO',     cat:'project',  r:15, desc:'TheMacroeconomicDAO — главный DAO, Q2 2026',         tags:['Solidity','BSC','Q2 2026'] },
+    { id:'dsp',          label:'DSP',             cat:'project',  r:13, desc:'Decentralized Social Platform — Q4 2025',           tags:['TypeScript','NestJS'] },
+    { id:'gyberNet',     label:'GyberNet',        cat:'project',  r:13, desc:'Кастомный блокчейн Gybernaty — TestNet Q3 2026',    tags:['Rust','blockchain'] },
+    { id:'aic',          label:'AiC',             cat:'project',  r:12, desc:'AI+Blockchain Division — 5-year roadmap',           tags:['AI','LLM','5-year'] },
+    { id:'summum',       label:'SUMMUM',          cat:'project',  r:11, desc:'Canton Network + TEE / institutional DeFi',         tags:['Canton','DAML'] },
+    { id:'bybit',        label:'Bybit Trader',    cat:'project',  r:10, desc:'AI trading bot — Live testing',                    tags:['Python','active'] },
+
+    // Research — green
+    { id:'swarm',        label:'Swarm Intel',     cat:'research', r:12, desc:'Роевой интеллект и мультиагентная координация',     tags:['multi-agent','coordination'] },
+    { id:'defi-canton',  label:'DeFi-Canton',     cat:'research', r:11, desc:'Canton Network / институциональный DeFi',          tags:['DeFi','Canton'] },
+    { id:'ai-ml',        label:'AI/ML R&D',       cat:'research', r:13, desc:'LLM training, PaLM-RLHF, LLaMA research',         tags:['LLM','training','RLHF'] },
+    { id:'blockchain-r', label:'Blockchain R&D',  cat:'research', r:11, desc:'Proof of Lucky, consensus algorithms',             tags:['consensus','Q3 2026'] },
+
+    // AI agents — cyan
+    { id:'oracle',       label:'Oracle',          cat:'ai',       r:18, desc:'Chief intelligence — R&D commander of Gybernaty', tags:['active','chief','AI'],  pulse:true },
+    { id:'codeguard-n',  label:'CodeGuard',       cat:'ai',       r:10, desc:'Static analysis, OWASP Top 10, injection detection', tags:['security'] },
+    { id:'infra-n',      label:'InfraSentinel',   cat:'ai',       r:10, desc:'Kubernetes posture: RBAC, pod security',          tags:['k8s','running'], pulse:true },
+  ],
+  links: [
+    ['cybersocium','dao-design'],['cybersocium','tokenomics'],['cybersocium','csc-model'],['cybersocium','gyber-dao'],
+    ['dao-design','gyber-dao'],['tokenomics','gyber-dao'],['csc-model','gyber-dao'],
+    ['gyber-dao','dsp'],['gyber-dao','gyberNet'],['gyber-dao','aic'],['gyber-dao','summum'],
+    ['gyberNet','blockchain-r'],['aic','ai-ml'],['aic','swarm'],
+    ['summum','defi-canton'],['defi-canton','tokenomics'],
+    ['oracle','codeguard-n'],['oracle','infra-n'],['oracle','ai-ml'],['oracle','swarm'],
+    ['ai-ml','swarm'],
+  ]
+};
+
+const CAT_COLOR = { theory:'#BF5AF2', project:'#007AFF', research:'#34C759', ai:'#64D2FF' };
+const CAT_GLOW  = { theory:'glow-p',  project:'glow-b',  research:'glow-g',  ai:'glow-c' };
+
+// ── State ─────────────────────────────────────────────────────────
+let curScreen = 'graph';
+let graphInited = false;
+let zoomRef = null;
+let svgRef = null;
+let selectedAgents = new Set();
+
+// ================================================================
+// NAVIGATION
+// ================================================================
+
+function navigate(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`screen-${id}`)?.classList.add('active');
+  document.querySelector(`.nav-item[data-s="${id}"]`)?.classList.add('active');
+  curScreen = id;
+  haptic.select();
+
+  if (id === 'graph' && !graphInited) { setTimeout(initGraph, 80); graphInited = true; }
+}
+
+document.querySelectorAll('.nav-item').forEach(el => {
+  el.addEventListener('click', () => navigate(el.dataset.s));
+});
+
+// ================================================================
+// MODAL
+// ================================================================
+
+function openModal(id) {
+  document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+  document.getElementById(id).style.display = 'block';
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+});
+
+// ================================================================
+// BADGE HELPERS
+// ================================================================
+
+function badge(status) {
+  const map = {
+    idle:    `<span class="badge b-idle"><span class="bdot"></span>Ожидание</span>`,
+    running: `<span class="badge b-run"><span class="bdot"></span>Выполняет</span>`,
+    active:  `<span class="badge b-ok"><span class="bdot"></span>Активен</span>`,
+    done:    `<span class="badge b-ok"><span class="bdot"></span>Завершено</span>`,
+    partial: `<span class="badge b-run"><span class="bdot"></span>В процессе</span>`,
+    waiting: `<span class="badge b-wait"><span class="bdot"></span>Ожидает</span>`,
+    error:   `<span class="badge b-err"><span class="bdot"></span>Ошибка</span>`,
+  };
+  return map[status] ?? map.idle;
+}
+
+// ================================================================
+// SCREEN: GRAPH — D3.js Force-Directed Knowledge Graph
+// ================================================================
+
+function initGraph() {
+  const container = document.getElementById('graph-container');
+  const W = container.clientWidth;
+  const H = container.clientHeight;
+  const svg = d3.select('#graph-svg');
+  svg.selectAll('*').remove();
+
+  // SVG glow filters
+  const defs = svg.append('defs');
+  const glowDefs = [
+    ['glow-b', [0,122,255],    4],
+    ['glow-g', [52,199,89],    4],
+    ['glow-p', [191,90,242],   4],
+    ['glow-c', [100,210,255],  4],
+    ['glow-w', [255,255,255],  3],
+  ];
+  glowDefs.forEach(([id, , std]) => {
+    const f = defs.append('filter').attr('id', id).attr('x','-60%').attr('y','-60%').attr('width','220%').attr('height','220%');
+    f.append('feGaussianBlur').attr('stdDeviation', std).attr('result','blur');
+    const m = f.append('feMerge');
+    m.append('feMergeNode').attr('in','blur');
+    m.append('feMergeNode').attr('in','SourceGraphic');
+  });
+
+  // Root group for zoom/pan
+  const root = svg.append('g');
+
+  // Zoom behavior
+  zoomRef = d3.zoom().scaleExtent([0.25, 3]).on('zoom', ev => root.attr('transform', ev.transform));
+  svgRef = svg.call(zoomRef);
+
+  // Data copies
+  const nodes = GRAPH.nodes.map(d => ({...d}));
+  const links = GRAPH.links.map(([s,t]) => ({ source:s, target:t }));
+
+  // Force simulation
+  const sim = d3.forceSimulation(nodes)
+    .force('link',    d3.forceLink(links).id(d=>d.id).distance(85).strength(0.4))
+    .force('charge',  d3.forceManyBody().strength(-230))
+    .force('center',  d3.forceCenter(W/2, H/2))
+    .force('collide', d3.forceCollide().radius(d => d.r + 18));
+
+  // Links
+  const linkSel = root.append('g')
+    .selectAll('line').data(links).join('line')
+    .attr('stroke', 'rgba(255,255,255,0.07)')
+    .attr('stroke-width', 1);
+
+  // Node groups
+  const nodeSel = root.append('g')
+    .selectAll('g').data(nodes).join('g')
+    .style('cursor','pointer')
+    .call(d3.drag()
+      .on('start', (ev,d) => { if (!ev.active) sim.alphaTarget(0.3).restart(); d.fx=d.x; d.fy=d.y; })
+      .on('drag',  (ev,d) => { d.fx=ev.x; d.fy=ev.y; })
+      .on('end',   (ev,d) => { if (!ev.active) sim.alphaTarget(0); d.fx=null; d.fy=null; })
+    )
+    .on('click', (ev,d) => { ev.stopPropagation(); showNodePanel(d); });
+
+  // Outer pulse ring for active nodes
+  nodeSel.filter(d=>d.pulse)
+    .append('circle')
+    .attr('r', d=>d.r+9)
+    .attr('fill','none')
+    .attr('stroke', d=>CAT_COLOR[d.cat])
+    .attr('stroke-width', 1)
+    .attr('opacity', 0.35)
+    .attr('filter', d=>`url(#${CAT_GLOW[d.cat]})`);
+
+  // Main circles
+  nodeSel.append('circle')
+    .attr('r', d=>d.r)
+    .attr('fill', d=>`${CAT_COLOR[d.cat]}1A`)
+    .attr('stroke', d=>CAT_COLOR[d.cat])
+    .attr('stroke-width', d=>d.pulse?2:1.5)
+    .attr('filter', d=>`url(#${CAT_GLOW[d.cat]})`);
+
+  // Labels
+  nodeSel.append('text')
+    .text(d=>d.label)
+    .attr('dy', d=>d.r+13)
+    .attr('fill','rgba(255,255,255,0.65)')
+    .attr('font-size','11px')
+    .attr('text-anchor','middle')
+    .attr('font-family','-apple-system,BlinkMacSystemFont,system-ui')
+    .style('pointer-events','none');
+
+  // Pulse animation
+  function pulse() {
+    nodeSel.filter(d=>d.pulse).select('circle')
+      .transition().duration(1300).ease(d3.easeSinInOut).attr('r', d=>d.r+3)
+      .transition().duration(1300).ease(d3.easeSinInOut).attr('r', d=>d.r)
+      .on('end', pulse);
+  }
+  pulse();
+
+  // Tick
+  sim.on('tick', () => {
+    linkSel.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+           .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+    nodeSel.attr('transform', d=>`translate(${d.x},${d.y})`);
+  });
+
+  // Close panel on svg click
+  svg.on('click', () => closeNodePanel());
+
+  // Initial fit
+  setTimeout(() => {
+    svgRef.transition().duration(800).call(
+      zoomRef.transform,
+      d3.zoomIdentity.translate(W*0.05, H*0.05).scale(0.88)
+    );
+  }, 600);
+}
+
+function showNodePanel(node) {
+  const catNames = { theory:'Теория', project:'Проект', research:'Исследования', ai:'AI Agent' };
+  const color = CAT_COLOR[node.cat];
+  const tags = node.tags.map(t=>`<span class="tag">${t}</span>`).join('');
+  const extra = node.cat === 'ai'
+    ? `<button class="btn btn-primary btn-sm" onclick="navigate('agents');closeNodePanel()">→ К агентам</button>`
+    : `<button class="btn btn-ghost btn-sm" onclick="closeNodePanel()">Открыть заметку</button>`;
+
+  document.getElementById('panel-body').innerHTML = `
+    <div class="panel-title">${node.label}</div>
+    <div class="panel-meta">
+      <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${color};box-shadow:0 0 8px ${color};margin-right:6px;vertical-align:middle"></span>
+      ${catNames[node.cat]}
+    </div>
+    <div class="panel-desc">${node.desc}</div>
+    <div class="tag-row">${tags}</div>
+    <div class="panel-btns">
+      <button class="btn btn-ghost btn-sm" onclick="closeNodePanel()">Закрыть</button>
+      ${extra}
+    </div>`;
+  document.getElementById('node-panel').classList.add('open');
+  haptic.light();
+}
+
+function closeNodePanel() { document.getElementById('node-panel').classList.remove('open'); }
+
+// Zoom buttons
+document.getElementById('zoom-in') .addEventListener('click', () => svgRef?.transition().duration(280).call(zoomRef.scaleBy, 1.4));
+document.getElementById('zoom-out').addEventListener('click', () => svgRef?.transition().duration(280).call(zoomRef.scaleBy, 0.7));
+document.getElementById('graph-reset').addEventListener('click', () => {
+  const c = document.getElementById('graph-container');
+  svgRef?.transition().duration(600).call(
+    zoomRef.transform,
+    d3.zoomIdentity.translate(c.clientWidth*0.05, c.clientHeight*0.05).scale(0.88)
+  );
+});
+
+// ================================================================
+// SCREEN: AGENTS
+// ================================================================
+
+function renderAgents() {
+  renderGroups();
+  renderAgentList();
+}
+
+function renderGroups() {
+  document.getElementById('groups-list').innerHTML = GROUPS.map(g => {
+    const members = g.agents.map(id => AGENTS.find(a=>a.id===id)).filter(Boolean);
+    const avs = members.slice(0,4).map(a =>
+      `<div class="avatar" style="background:${a.color}25" title="${a.name}">${a.icon}</div>`
+    ).join('');
+    const extra = members.length>4 ? `<div class="avatar" style="background:rgba(255,255,255,0.08)">+${members.length-4}</div>` : '';
+
+    return `
+    <div class="card group-card" style="cursor:pointer" onclick="openLaunchForGroup('${g.id}')">
+      <div class="group-accent" style="background:${g.color}"></div>
+      <div class="group-body">
+        <div class="flex-between mb-sm">
+          <div class="flex-row gap-sm">
+            <span style="font-size:20px">${g.icon}</span>
+            <div>
+              <div class="group-name">${g.name}</div>
+              <div class="group-info">${members.length} агентов · ${g.lastRun}</div>
+            </div>
+          </div>
+          ${badge(g.status)}
+        </div>
+        <div class="avatars">${avs}${extra}</div>
+        <div style="font-size:12px;color:var(--t3);margin-bottom:12px">Последнее: ${g.lastTask}</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary btn-sm" style="flex:1" onclick="event.stopPropagation();openLaunchForGroup('${g.id}')">⚡ Запустить</button>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="event.stopPropagation()">⋯</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderAgentList() {
+  document.getElementById('agents-list').innerHTML = AGENTS.map(a => `
+    <div class="card agent-row" style="cursor:pointer" onclick="showAgentDetail('${a.id}')">
+      <div class="agent-icon-wrap" style="background:${a.color}1A;border:1px solid ${a.color}30">
+        <span style="font-size:20px">${a.icon}</span>
+      </div>
+      <div class="agent-info">
+        <div class="agent-name">${a.name}</div>
+        <div class="agent-domain">${a.domain}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
+        ${badge(a.status)}
+        ${a.findings>0 ? `<span style="font-size:11px;color:var(--orange)">${a.findings} found</span>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+function showAgentDetail(id) {
+  const a = AGENTS.find(x=>x.id===id);
+  if (!a) return;
+  document.getElementById('detail-body').innerHTML = `
+    <div class="flex-row gap-md mb-md">
+      <div style="width:52px;height:52px;border-radius:var(--r-lg);background:${a.color}20;display:flex;align-items:center;justify-content:center;font-size:26px;border:1px solid ${a.color}35">${a.icon}</div>
+      <div>
+        <div style="font-size:20px;font-weight:700">${a.name}</div>
+        <div style="font-size:13px;color:var(--t2)">${a.domain}</div>
+      </div>
+    </div>
+    ${badge(a.status)}
+    <div style="font-size:14px;color:var(--t2);line-height:1.6;margin:14px 0">${a.desc}</div>
+    <div class="detail-row"><span class="detail-key">Последний запуск</span><span class="detail-value">${a.lastRun}</span></div>
+    <div class="detail-row"><span class="detail-key">Находки</span><span class="detail-value" style="color:${a.findings>0?'var(--orange)':'var(--green)'}">${a.findings}</span></div>
+  `;
+  openModal('m-detail');
+}
+
+// Create group
+function openCreateGroup() {
+  selectedAgents = new Set();
+  document.getElementById('new-group-name').value = '';
+  document.getElementById('agent-pick-grid').innerHTML = AGENTS.map(a => `
+    <div class="agent-pick-item" data-id="${a.id}" onclick="toggleAgent('${a.id}')">
+      <span class="agent-pick-icon">${a.icon}</span>
+      <span class="agent-pick-name">${a.name}</span>
+    </div>`).join('');
+  openModal('m-create-group');
+}
+
+function toggleAgent(id) {
+  selectedAgents.has(id) ? selectedAgents.delete(id) : selectedAgents.add(id);
+  document.querySelectorAll('.agent-pick-item').forEach(el => {
+    el.classList.toggle('selected', selectedAgents.has(el.dataset.id));
+  });
+  haptic.select();
+}
+
+function saveGroup() {
+  const name = document.getElementById('new-group-name').value.trim();
+  if (!name || selectedAgents.size === 0) return;
+  const palette = ['#FF453A','#007AFF','#34C759','#FF9F0A','#BF5AF2','#64D2FF'];
+  const icons   = ['🔮','🌀','💥','🧩','🎯','⚡','🔒','🧠'];
+  GROUPS.unshift({
+    id: `g-${Date.now()}`, name, icon: icons[~~(Math.random()*icons.length)],
+    color: palette[~~(Math.random()*palette.length)],
+    agents: [...selectedAgents], status:'idle', lastTask:'Нет задач', lastRun:'Никогда'
+  });
+  renderAgents();
+  closeModal();
+  haptic.success();
+}
+
+document.getElementById('fab-group').addEventListener('click', openCreateGroup);
+document.getElementById('cancel-group').addEventListener('click', closeModal);
+document.getElementById('save-group').addEventListener('click', saveGroup);
+
+// ================================================================
+// SCREEN: MONITOR
+// ================================================================
+
+function renderMonitor() {
+  document.getElementById('monitor-agents').innerHTML = AGENTS.map(a => `
+    <div class="status-row">
+      <div class="sdot ${a.status}"></div>
+      <span style="flex:1;font-size:14px">${a.icon} ${a.name}</span>
+      <span style="font-size:11px;color:var(--t3);margin-right:8px">${a.lastRun}</span>
+      ${badge(a.status)}
+    </div>`).join('');
+
+  document.getElementById('timeline').innerHTML = TIMELINE_DATA.map((item,i) => `
+    <div class="timeline-item">
+      ${i < TIMELINE_DATA.length-1 ? '<div class="tl-line"></div>' : ''}
+      <div class="tl-dot" style="background:${item.bg}">${item.icon}</div>
+      <div class="tl-body">
+        <div class="tl-title">${item.title}</div>
+        <div class="tl-time">${item.time}</div>
+        <div class="tl-desc">${item.desc}</div>
+      </div>
+    </div>`).join('');
+}
+
+// Animate context bar
+function animCtx() {
+  setTimeout(() => { document.getElementById('ctx-bar').style.width = '49%'; }, 400);
+}
+
+// ================================================================
+// SCREEN: TASKS
+// ================================================================
+
+function renderTasks() {
+  // Update group select
+  const sel = document.getElementById('task-group-sel');
+  sel.innerHTML = '<option value="">Выберите группу...</option>' +
+    GROUPS.map(g=>`<option value="${g.id}">${g.icon} ${g.name}</option>`).join('');
+
+  const sevColor = {CRITICAL:'var(--red)',HIGH:'var(--orange)',MEDIUM:'var(--yellow)',LOW:'var(--t2)','—':'var(--t3)'};
+
+  document.getElementById('tasks-list').innerHTML = TASKS.map(t => {
+    const pc = t.status==='done' ? 'prog-green' : t.status==='partial' ? 'prog-blue' : 'prog-orange';
+    return `
+    <div class="card task-card" style="cursor:pointer" onclick="showTaskDetail('${t.id}')">
+      <div class="task-head">
+        <div class="task-name">${t.name}</div>
+        ${badge(t.status)}
+      </div>
+      <div class="task-meta">${t.group} · ${t.time}</div>
+      <div class="task-prog-head">
+        <span>${t.findings} находок</span>
+        <span>${t.progress}%</span>
+      </div>
+      <div class="progress"><div class="prog-fill ${pc}" style="width:${t.progress}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function showTaskDetail(id) {
+  const t = TASKS.find(x=>x.id===id);
+  if (!t) return;
+  const sc = {CRITICAL:'var(--red)',HIGH:'var(--orange)',MEDIUM:'var(--yellow)',LOW:'var(--t2)','—':'var(--t3)'};
+  const rows = t.results.map(r=>`
+    <div class="detail-row">
+      <span class="detail-key">${r.a}</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${r.f>0?`<span style="font-size:12px;color:var(--orange)">${r.f} found</span>`:''}
+        <span style="font-size:12px;color:${sc[r.sev]||'var(--t3)'}">${r.sev}</span>
+        ${badge(r.s)}
+      </div>
+    </div>`).join('');
+
+  document.getElementById('detail-body').innerHTML = `
+    <div class="mtitle" style="font-size:18px;margin-bottom:8px">${t.name}</div>
+    ${badge(t.status)}
+    <div class="flex-between" style="font-size:13px;color:var(--t2);margin:12px 0">
+      <span>${t.group}</span><span>${t.time}</span>
+    </div>
+    <div class="progress mb-md" style="height:6px">
+      <div class="prog-fill prog-blue" style="width:${t.progress}%"></div>
+    </div>
+    <div class="section-label" style="margin-top:16px">Результаты агентов</div>
+    ${rows}`;
+  openModal('m-detail');
+}
+
+function openLaunchForGroup(gid) {
+  renderTasks();
+  document.getElementById('task-group-sel').value = gid;
+  openModal('m-launch');
+}
+
+document.getElementById('btn-launch').addEventListener('click', () => { renderTasks(); openModal('m-launch'); });
+document.getElementById('cancel-launch').addEventListener('click', closeModal);
+document.getElementById('close-detail').addEventListener('click', closeModal);
+
+document.getElementById('run-task').addEventListener('click', () => {
+  const gid  = document.getElementById('task-group-sel').value;
+  const desc = document.getElementById('task-desc').value.trim();
+  if (!gid || !desc) return;
+
+  const g = GROUPS.find(x=>x.id===gid);
+  if (!g) return;
+
+  const newTask = {
+    id: `t-${Date.now()}`,
+    name: desc.length>55 ? desc.slice(0,55)+'…' : desc,
+    group: g.name, gid,
+    status:'running', progress:0, time:'Только что', findings:0,
+    results: g.agents.map(id => {
+      const a = AGENTS.find(x=>x.id===id);
+      return { a: a?.name||id, s:'waiting', f:0, sev:'—' };
+    })
+  };
+
+  TASKS.unshift(newTask);
+  g.lastTask = newTask.name;
+  g.lastRun  = 'Только что';
+  g.status   = 'running';
+  g.agents.forEach(id => { const a=AGENTS.find(x=>x.id===id); if(a) a.status='running'; });
+
+  closeModal();
+  document.getElementById('task-desc').value = '';
+  navigate('tasks');
+  renderTasks();
+  renderMonitor();
+  renderAgents();
+  haptic.success();
+
+  // Simulate progress
+  simulateProgress(newTask, g);
+});
+
+function simulateProgress(task, group) {
+  const iv = setInterval(() => {
+    task.progress = Math.min(100, task.progress + Math.random()*18 + 4 | 0);
+    if (task.progress >= 100) {
+      task.status = 'done';
+      group.status = 'idle';
+      group.agents.forEach(id => { const a=AGENTS.find(x=>x.id===id); if(a) a.status='idle'; });
+      task.results.forEach(r => r.s === 'waiting' || r.s === 'running' ? r.s = 'done' : null);
+      clearInterval(iv);
+      haptic.success();
+    }
+    if (curScreen==='tasks')   renderTasks();
+    if (curScreen==='monitor') renderMonitor();
+    if (curScreen==='agents')  renderAgents();
+  }, 1600);
+}
+
+// ================================================================
+// INIT
+// ================================================================
+
+function init() {
+  renderAgents();
+  renderMonitor();
+  renderTasks();
+  animCtx();
+
+  // Kick-off graph (it's the first screen)
+  setTimeout(() => { initGraph(); graphInited = true; }, 250);
+
+  // Hide loading screen
+  document.getElementById('load-fill').style.width = '100%';
+  setTimeout(() => document.getElementById('loading').classList.add('gone'), 1700);
+}
+
+// Boot
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>
