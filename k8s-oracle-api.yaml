@@ -1,0 +1,127 @@
+---
+# Oracle API Server — K8s Deployment
+# Читает PVC OpenClaw напрямую, отдаёт live данные для Mini App
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oracle-api
+  namespace: openclaw
+  labels:
+    app: oracle-api
+    component: miniapp-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oracle-api
+  template:
+    metadata:
+      labels:
+        app: oracle-api
+    spec:
+      containers:
+        - name: oracle-api
+          image: node:22-alpine
+          command: ["node", "/app/oracle-api.js"]
+          ports:
+            - containerPort: 3001
+          env:
+            - name: ORACLE_API_PORT
+              value: "3001"
+            - name: OPENCLAW_DIR
+              value: "/home/openclaw/.openclaw"
+            - name: ORACLE_ALLOWED_USER_ID
+              value: "1821708942"
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: TELEGRAM_BOT_TOKEN
+            - name: OPENCLAW_GATEWAY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-secrets
+                  key: OPENCLAW_GATEWAY_TOKEN
+          volumeMounts:
+            - name: openclaw-data
+              mountPath: /home/openclaw/.openclaw
+              readOnly: true
+            - name: api-script
+              mountPath: /app
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 3
+            periodSeconds: 10
+      volumes:
+        - name: openclaw-data
+          persistentVolumeClaim:
+            claimName: openclaw-pvc   # тот же PVC что у основного openclaw пода
+        - name: api-script
+          configMap:
+            name: oracle-api-script
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oracle-api-script
+  namespace: openclaw
+data:
+  oracle-api.js: |
+    # Содержимое oracle-api.js (монтируется как файл)
+    # При деплое: kubectl create configmap oracle-api-script \
+    #   --from-file=oracle-api.js=/home/openclaw/.openclaw/workspace/miniapp/oracle-api.js \
+    #   -n openclaw --dry-run=client -o yaml | kubectl apply -f -
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oracle-api
+  namespace: openclaw
+spec:
+  selector:
+    app: oracle-api
+  ports:
+    - port: 3001
+      targetPort: 3001
+      name: http
+  type: ClusterIP
+---
+# Ingress — добавить к существующему ingress или создать новый
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: oracle-api-ingress
+  namespace: openclaw
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: oracle.gyber.org
+      http:
+        paths:
+          - path: /oracle-api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: oracle-api
+                port:
+                  number: 3001
