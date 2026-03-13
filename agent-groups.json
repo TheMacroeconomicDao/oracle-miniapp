@@ -1,0 +1,120 @@
+{
+  "version": 1,
+  "agents": {
+    "codeguard": {
+      "id": "codeguard",
+      "name": "CodeGuard",
+      "icon": "🛡️",
+      "color": "#007AFF",
+      "domain": "Статический анализ кода",
+      "desc": "OWASP Top 10, инъекции, хардкодные секреты, небезопасные паттерны",
+      "skill": "security_audit"
+    },
+    "secretswatchdog": {
+      "id": "secretswatchdog",
+      "name": "SecretsWatchdog",
+      "icon": "🔑",
+      "color": "#FF9F0A",
+      "domain": "Утечки секретов",
+      "desc": "Credentials, env handling, token hygiene, git history scanning",
+      "skill": "secrets_scan"
+    },
+    "cicdguardian": {
+      "id": "cicdguardian",
+      "name": "CICDGuardian",
+      "icon": "⚙️",
+      "color": "#34C759",
+      "domain": "GitHub Actions",
+      "desc": "Injection via inputs, missing permissions, unpinned actions, cleanup steps",
+      "skill": "cicd_guard"
+    },
+    "infrasentinel": {
+      "id": "infrasentinel",
+      "name": "InfraSentinel",
+      "icon": "🌐",
+      "color": "#BF5AF2",
+      "domain": "Kubernetes",
+      "desc": "RBAC, pod security, network policies, resource limits, secret management",
+      "skill": "infra_sentinel"
+    },
+    "vulnreporter": {
+      "id": "vulnreporter",
+      "name": "VulnReporter",
+      "icon": "📋",
+      "color": "#64D2FF",
+      "domain": "Отчёты",
+      "desc": "Консолидация findings, GitHub Issues, vault storage, уведомления",
+      "skill": "vuln_report"
+    },
+    "researcher": {
+      "id": "researcher",
+      "name": "Researcher",
+      "icon": "🔬",
+      "color": "#FF453A",
+      "domain": "Веб-ресёрч",
+      "desc": "Поиск информации, анализ источников, синтез отчётов",
+      "skill": null
+    },
+    "theoryanalyst": {
+      "id": "theoryanalyst",
+      "name": "TheoryAnalyst",
+      "icon": "🧬",
+      "color": "#FFD60A",
+      "domain": "Теория CyberSocium",
+      "desc": "Анализ и развитие CyberSocium теории, формальные механизмы",
+      "skill": null
+    }
+  },
+  "groups": [
+    {
+      "id": "security-team",
+      "name": "Security Team",
+      "icon": "🔐",
+      "color": "#FF453A",
+      "agents": ["codeguard", "secretswatchdog", "cicdguardian", "infrasentinel"],
+      "pipeline": ["vulnreporter"],
+      "parallel": true,
+      "description": "Полный аудит безопасности: код + секреты + CI/CD + инфра"
+    },
+    {
+      "id": "quick-scan",
+      "name": "Quick Scan",
+      "icon": "⚡",
+      "color": "#007AFF",
+      "agents": ["codeguard", "secretswatchdog"],
+      "pipeline": [],
+      "parallel": true,
+      "description": "Быстрая проверка кода и секретов для PR review"
+    },
+    {
+      "id": "research-team",
+      "name": "Research Team",
+      "icon": "🔬",
+      "color": "#64D2FF",
+      "agents": ["researcher", "theoryanalyst"],
+      "pipeline": [],
+      "parallel": true,
+      "description": "Исследование тем, анализ теории CyberSocium"
+    },
+    {
+      "id": "infra-team",
+      "name": "Infra Team",
+      "icon": "🌐",
+      "color": "#BF5AF2",
+      "agents": ["infrasentinel", "cicdguardian"],
+      "pipeline": [],
+      "parallel": true,
+      "description": "Мониторинг K8s и GitHub Actions"
+    }
+  ],
+  "combinations": [
+    {
+      "id": "full-audit",
+      "name": "Full System Audit",
+      "icon": "🛡️",
+      "color": "#FF453A",
+      "groups": ["security-team", "research-team"],
+      "description": "Полный аудит системы: безопасность + исследование"
+    }
+  ]
+}
