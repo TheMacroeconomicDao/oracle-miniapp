@@ -906,7 +906,11 @@
 ================================================================ */
 
 // ── API Base URL ─────────────────────────────────────────────────
-const API_BASE = 'https://oracle.gyber.org/oracle-api';
+const API_BASE = (() => {
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+    return 'http://localhost:3001/oracle-api';
+  return 'https://oracle.gyber.org/oracle-api';
+})();
 
 // ── Telegram WebApp init ─────────────────────────────────────────
 const tg = window.Telegram?.WebApp;
