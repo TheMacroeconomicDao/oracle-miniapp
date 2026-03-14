@@ -631,7 +631,7 @@
     <div class="screen-header">
       <div>
         <div class="screen-title">База знаний</div>
-        <div class="screen-sub">Граф связей · 17 узлов · 21 связь</div>
+        <div class="screen-sub" id="graph-sub">Граф связей · загрузка…</div>
       </div>
       <button class="btn btn-ghost btn-sm" id="graph-reset">Сброс</button>
     </div>
@@ -868,7 +868,7 @@
       </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="cancel-group">Отмена</button>
-        <button class="btn btn-primary" id="save-group">✓ Создать</button>
+        <button class="btn btn-primary" id="save-group">Создать группу</button>
       </div>
     </div>
 
@@ -1108,6 +1108,13 @@ async function loadAll() {
     if (graphRes.status === 'fulfilled') APP.graph = graphRes.value;
 
     APP.lastUpdate = Date.now();
+
+    // Обновляем subtitle графа с реальными данными
+    const gSub = document.getElementById('graph-sub');
+    if (gSub && APP.graph?.nodes?.length) {
+      gSub.textContent = `Граф связей · ${APP.graph.nodes.length} узлов · ${APP.graph.links?.length || 0} связей`;
+    }
+
     renderAll();
   } catch(e) {
     console.error('loadAll error:', e);
@@ -1192,7 +1199,7 @@ function handleSSEEvent(msg) {
     case 'agent:result': {
       // Task completed — show toast notification
       showToast(
-        msg.status === 'error' ? '❌ Ошибка агента' : '✅ Задача выполнена',
+        msg.status === 'error' ? 'Ошибка агента' : 'Задача выполнена',
         msg.agentId ? `${msg.agentId} завершил работу` : '',
         msg.status === 'error' ? 'error' : 'success'
       );
@@ -1637,7 +1644,14 @@ function renderAgents() {
 function renderGroups() {
   const groups = getGroups();
   const agents = getAgents();
-  document.getElementById('groups-list').innerHTML = groups.map(g => {
+  const groupsList = document.getElementById('groups-list');
+  if (!groups.length) {
+    groupsList.innerHTML = `<div style="text-align:center;padding:32px;color:var(--t3);font-size:13px">
+      <div style="margin-bottom:8px;opacity:0.4"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg></div>
+      Нет данных — проверьте соединение с API
+    </div>`;
+  } else {
+    groupsList.innerHTML = groups.map(g => {
     const members = (g.agents || []).map(id => agents.find(a=>a.id===id)).filter(Boolean);
     const avs = members.slice(0,4).map(a =>
       `<div class="avatar" style="background:${a.color}25" title="${a.name}">${a.icon}</div>`
@@ -1671,7 +1685,12 @@ function renderGroups() {
 
 function renderAgentList() {
   const agents = getAgents();
-  document.getElementById('agents-list').innerHTML = agents.map(a => `
+  } // end else groups
+  const agentsList = document.getElementById('agents-list');
+  if (!agents.length) {
+    agentsList.innerHTML = `<div style="text-align:center;padding:24px;color:var(--t3);font-size:13px">Нет агентов</div>`;
+  } else {
+    agentsList.innerHTML = agents.map(a => `
     <div class="card agent-row" style="cursor:pointer" onclick="showAgentDetail('${a.id}')">
       <div class="agent-icon-wrap" style="background:${a.color}1A;border:1px solid ${a.color}30">
         <span style="font-size:20px">${a.icon}</span>
@@ -1691,6 +1710,7 @@ function showAgentDetail(id) {
   const agents = getAgents();
   const a = agents.find(x=>x.id===id);
   if (!a) return;
+  } // end else agents
   document.getElementById('detail-body').innerHTML = `
     <div class="flex-row gap-md mb-md">
       <div style="width:52px;height:52px;border-radius:var(--r-lg);background:${a.color}20;display:flex;align-items:center;justify-content:center;font-size:26px;border:1px solid ${a.color}35">${a.icon}</div>
@@ -1733,7 +1753,7 @@ function saveGroup() {
   const name = document.getElementById('new-group-name').value.trim();
   if (!name || selectedAgents.size === 0) return;
   const palette = ['#FF453A','#007AFF','#34C759','#FF9F0A','#BF5AF2','#64D2FF'];
-  const icons   = ['🔮','🌀','💥','🧩','🎯','⚡','🔒','🧠'];
+  const icons   = ['◆','◈','◉','◎','●','○','◐','◑']; // SVG-safe symbols
   const newGroup = {
     id: `g-${Date.now()}`, name, icon: icons[~~(Math.random()*icons.length)],
     color: palette[~~(Math.random()*palette.length)],
@@ -1768,27 +1788,43 @@ function renderMonitor() {
       ${badge(a.status)}
     </div>`).join('');
 
-  // Если есть recentRuns из API — используем их, иначе TIMELINE_DATA_MOCK
-  const timelineData = APP.recentRuns.length ? APP.recentRuns : TIMELINE_DATA_MOCK;
-  document.getElementById('timeline').innerHTML = timelineData.map((item,i) => `
-    <div class="timeline-item">
-      ${i < timelineData.length-1 ? '<div class="tl-line"></div>' : ''}
-      <div class="tl-dot" style="background:${item.bg || 'rgba(100,210,255,0.14)'}">${item.icon || '🔬'}</div>
-      <div class="tl-body">
-        <div class="tl-title">${item.title}</div>
-        <div class="tl-time">${item.time}</div>
-        <div class="tl-desc">${item.desc || ''}</div>
-      </div>
-    </div>`).join('');
+  // Timeline из реальных задач APP.tasks + APP.recentRuns
+  const tlEl = document.getElementById('timeline');
+  const tlTasks = [...(APP.tasks || [])].slice(0, 8);
+  const tlRuns  = APP.recentRuns.length ? APP.recentRuns : [];
+  if (!tlTasks.length && !tlRuns.length) {
+    tlEl.innerHTML = `<div style="text-align:center;padding:32px 24px;color:var(--t3)">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" style="margin-bottom:12px;opacity:0.4"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <div style="font-size:13px">События появятся после запуска задач</div>
+    </div>`;
+  } else {
+    const timelineData = tlTasks.length ? tlTasks.map(t => ({
+      title: t.name,
+      time: t.time || 'Только что',
+      desc: `${t.group} · ${t.progress}% · ${t.findings} находок`,
+      bg: t.status==='done' ? 'rgba(34,197,94,0.15)' : 'rgba(79,142,247,0.15)',
+      statusColor: t.status==='done' ? 'var(--green)' : 'var(--blue)'
+    })) : tlRuns;
+    tlEl.innerHTML = timelineData.map((item, i) => `
+      <div class="timeline-item">
+        ${i < timelineData.length-1 ? '<div class="tl-line"></div>' : ''}
+        <div class="tl-dot" style="background:${item.bg || 'rgba(100,210,255,0.14)'}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${item.statusColor || 'var(--cyan)'}" stroke-width="2" stroke-linecap="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </div>
+        <div class="tl-body">
+          <div class="tl-title">${item.title}</div>
+          <div class="tl-time">${item.time}</div>
+          ${item.desc ? `<div class="tl-desc">${item.desc}</div>` : ''}
+        </div>
+      </div>`).join('');
+  }
 
   // Обновляем live метрики
   updateLiveMetrics();
 }
 
 // Animate context bar
-function animCtx() {
-  setTimeout(() => { document.getElementById('ctx-bar').style.width = '49%'; }, 400);
-}
+function animCtx() { /* ctx-bar обновляется из updateLiveMetrics */ }
 
 // ================================================================
 // SCREEN: TASKS
@@ -1805,7 +1841,17 @@ function renderTasks() {
 
   const sevColor = {CRITICAL:'var(--red)',HIGH:'var(--orange)',MEDIUM:'var(--yellow)',LOW:'var(--t2)','—':'var(--t3)'};
 
-  document.getElementById('tasks-list').innerHTML = tasks.map(t => {
+  const tasksList = document.getElementById('tasks-list');
+  if (!tasks.length) {
+    tasksList.innerHTML = `
+      <div style="text-align:center;padding:48px 24px;color:var(--t3)">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" style="margin-bottom:16px;opacity:0.4"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        <div style="font-size:15px;font-weight:600;color:var(--t2);margin-bottom:6px">Задач пока нет</div>
+        <div style="font-size:13px;line-height:1.5">Запустите первую группу агентов<br>через кнопку выше</div>
+      </div>`;
+    return;
+  }
+  tasksList.innerHTML = tasks.map(t => {
     const pc = t.status==='done' ? 'prog-green' : t.status==='partial' ? 'prog-blue' : 'prog-orange';
     return `
     <div class="card task-card" style="cursor:pointer" onclick="showTaskDetail('${t.id}')">
