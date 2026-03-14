@@ -2,6 +2,9 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Oracle — Command Center</title>
 
@@ -640,10 +643,16 @@
       <svg id="graph-svg"></svg>
 
       <div class="graph-legend">
-        <div class="legend-row"><div class="ldot" style="background:#BF5AF2;box-shadow:0 0 8px rgba(191,90,242,0.7)"></div>Теория</div>
-        <div class="legend-row"><div class="ldot" style="background:#007AFF;box-shadow:0 0 8px rgba(0,122,255,0.7)"></div>Проекты</div>
-        <div class="legend-row"><div class="ldot" style="background:#34C759;box-shadow:0 0 8px rgba(52,199,89,0.7)"></div>Исследования</div>
-        <div class="legend-row"><div class="ldot" style="background:#64D2FF;box-shadow:0 0 8px rgba(100,210,255,0.7)"></div>AI Агенты</div>
+        <div class="legend-row"><div class="ldot" style="background:#BF5AF2;box-shadow:0 0 6px rgba(191,90,242,0.6)"></div>Теория</div>
+        <div class="legend-row"><div class="ldot" style="background:#007AFF;box-shadow:0 0 6px rgba(0,122,255,0.6)"></div>Проекты</div>
+        <div class="legend-row"><div class="ldot" style="background:#34C759;box-shadow:0 0 6px rgba(52,199,89,0.6)"></div>Research</div>
+        <div class="legend-row"><div class="ldot" style="background:#FF9F0A;box-shadow:0 0 6px rgba(255,159,10,0.6)"></div>Ежедневно</div>
+        <div class="legend-row"><div class="ldot" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2)"></div>Связь</div>
+      </div>
+      <div style="padding:6px 10px">
+        <input id="graph-search" placeholder="Поиск в базе знаний..." 
+          style="width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 10px;font-size:12px;color:var(--t1);outline:none"
+          oninput="debounceGraphSearch(this.value)" />
       </div>
 
       <div class="zoom-controls">
@@ -782,6 +791,8 @@
         <div class="section-label">Timeline событий</div>
         <div id="timeline"></div>
       </div>
+
+      <div id="monitor-last-updated" style="font-size:10px;color:var(--t3);text-align:center;padding:8px">—</div>
     </div>
   </div>
 
@@ -810,10 +821,52 @@
   </div>
 
   <!-- ======== SCREEN: OFFICE ======== -->
+  <!-- ======== SCREEN: PROJECTS (Symphony Bridge) ======== -->
+  <div class="screen" id="screen-projects">
+    <div class="screen-header">
+      <div>
+        <div class="screen-title">Проекты</div>
+        <div class="screen-sub" id="projects-sub">GitHub · GitLab · Symphony Bridge</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="openModal('m-add-project')">+ Репо</button>
+    </div>
+    <div class="screen-body">
+
+      <div id="projects-summary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:0 0 12px 0">
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px">
+          <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px">Проекты</div>
+          <div style="font-size:18px;font-weight:600" id="proj-stat-total">—</div>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px">
+          <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px">Выполнено</div>
+          <div style="font-size:18px;font-weight:600;color:var(--green)" id="proj-stat-done">—</div>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px">
+          <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px">В работе</div>
+          <div style="font-size:18px;font-weight:600;color:var(--blue)" id="proj-stat-running">—</div>
+        </div>
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:10px">
+          <div style="font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px">Ожидают</div>
+          <div style="font-size:18px;font-weight:600;color:var(--orange)" id="proj-stat-pending">—</div>
+        </div>
+      </div>
+
+      <div class="section-label">Отслеживаемые репозитории</div>
+      <div id="projects-list"></div>
+
+      <div class="section-label" style="margin-top:20px">
+        Открытые задачи
+        <button class="btn btn-ghost btn-sm" style="float:right;font-size:11px" onclick="pollProjects()">Обновить</button>
+      </div>
+      <div id="issues-list"></div>
+
+    </div>
+  </div>
+
   <div class="screen" id="screen-office" style="bottom:var(--nav-h)">
     <iframe
       id="office-iframe"
-      src="./oracle-office/index.html"
+      src="https://oracle.gyber.org/oracle-api/office"
       style="width:100%;height:100%;border:none;background:#06060f;display:block;flex:1"
       allow="autoplay"
       loading="lazy"
@@ -843,6 +896,11 @@
       <div class="nav-label">Задачи</div>
       <div class="nav-dot"></div>
     </div>
+    <div class="nav-item" data-s="projects">
+      <div class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg></div>
+      <div class="nav-label">Проекты</div>
+      <div class="nav-dot" id="projects-dot"></div>
+    </div>
     <div class="nav-item" data-s="office">
       <div class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></div>
       <div class="nav-label">Офис</div>
@@ -852,6 +910,40 @@
 
   <!-- ======== MODALS ======== -->
   <div id="modal-overlay">
+
+    <!-- Add Project (Symphony) -->
+    <div class="modal" id="m-add-project">
+      <div class="mhandle"></div>
+      <div class="mtitle">Добавить репозиторий</div>
+      <div class="msub">Oracle будет следить за Issues и автоматически запускать агентов</div>
+      <div class="mfield">
+        <div class="mfield-label">Провайдер</div>
+        <select id="proj-provider" class="minput">
+          <option value="github">GitHub</option>
+          <option value="gitlab">GitLab</option>
+        </select>
+      </div>
+      <div class="mfield">
+        <div class="mfield-label">Репозиторий (owner/repo)</div>
+        <input id="proj-repo" class="minput" placeholder="TheMacroeconomicDao/openclaw-k8s" />
+      </div>
+      <div class="mfield">
+        <div class="mfield-label">Лейбл-триггер</div>
+        <input id="proj-label" class="minput" placeholder="oracle-task" value="oracle-task" />
+      </div>
+      <div class="mfield">
+        <div class="mfield-label">Группа агентов по умолчанию</div>
+        <select id="proj-group" class="minput">
+          <option value="research-team">Research Team</option>
+          <option value="security-team">Security Team</option>
+          <option value="blockchain-audit">Blockchain Audit</option>
+          <option value="architecture-review">Architecture Review</option>
+          <option value="ai-research">AI Research</option>
+          <option value="quick-scan">Quick Scan</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" id="save-project" onclick="saveProject()">Добавить репозиторий</button>
+    </div>
 
     <!-- Create Group -->
     <div class="modal" id="m-create-group">
@@ -1061,8 +1153,14 @@ const GRAPH = {
   ]
 };
 
-const CAT_COLOR = { theory:'#BF5AF2', project:'#007AFF', research:'#34C759', ai:'#64D2FF' };
-const CAT_GLOW  = { theory:'glow-p',  project:'glow-b',  research:'glow-g',  ai:'glow-c' };
+const CAT_COLOR = {
+  theory:'#BF5AF2', project:'#007AFF', research:'#34C759', ai:'#64D2FF',
+  overview:'#FF9F0A', daily:'#FF9F0A', other:'#64D2FF', phantom:'rgba(255,255,255,0.15)'
+};
+const CAT_GLOW  = {
+  theory:'glow-p', project:'glow-b', research:'glow-g', ai:'glow-c',
+  overview:'glow-c', daily:'glow-c', other:'glow-c', phantom:'glow-w'
+};
 
 // ── Состояние приложения ─────────────────────────────────────────
 let APP = {
@@ -1075,6 +1173,11 @@ let APP = {
   status: null,
   loading: false,
   lastUpdate: null,
+  // Symphony Bridge
+  projects: [],
+  issues: [],
+  symphonyRunning: {},
+  lastPoll: null,
 };
 
 // ── Геттеры — только реальные данные, без mock fallback ──────────
@@ -1104,8 +1207,31 @@ async function loadAll() {
       APP.combinations = d.combinations || [];
       APP.recentRuns  = d.recentRuns  || [];
     }
-    if (tasksRes.status === 'fulfilled') APP.tasks = tasksRes.value.tasks || [];
-    if (graphRes.status === 'fulfilled') APP.graph = graphRes.value;
+    if (tasksRes.status === 'fulfilled') {
+      APP.tasks = (tasksRes.value.tasks || []).map(t => ({
+        ...t,
+        name: t.name || t.task || t.description || 'Задача',
+        group: t.group || t.groupId || t.agentName || 'Oracle',
+        time: t.time || (t.startedAt ? new Date(t.startedAt).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}) : 'Только что'),
+        findings: t.findings || 0,
+        progress: t.progress ?? (t.status==='done' ? 100 : t.status==='error' ? 0 : 50),
+        results: t.results || [],
+      }));
+    }
+    if (graphRes.status === 'fulfilled') {
+      const raw = graphRes.value;
+      // Normalize nodes: API uses 'category' + 'degree', graph needs 'cat' + 'r' + 'pulse'
+      APP.graph = {
+        ...raw,
+        nodes: (raw.nodes || []).map(n => ({
+          ...n,
+          cat: n.cat || n.category || 'other',
+          r: n.phantom ? 4 : Math.max(6, Math.min(18, 6 + (n.degree || 0) * 1.8)),
+          pulse: !n.phantom && (n.degree || 0) >= 3,
+          label: n.label || n.id || '?',
+        })),
+      };
+    }
 
     APP.lastUpdate = Date.now();
 
@@ -1116,9 +1242,9 @@ async function loadAll() {
     }
 
     renderAll();
+    syncOffice(); // push fresh state to oracle-office dashboard
   } catch(e) {
     console.error('loadAll error:', e);
-    // При ошибке рендерим с mock-данными
     renderAll();
   } finally {
     APP.loading = false;
@@ -1129,6 +1255,8 @@ async function loadAll() {
 let sseConn = null;
 let sseReconnectTimer = null;
 let sseBackoff = 1000;
+let sseWasConnected = false;     // tracks if we had a successful connection before
+let sseDisconnectedAt = null;    // when we lost connection
 
 function connectSSE() {
   if (sseConn) { try { sseConn.close(); } catch {} }
@@ -1141,6 +1269,12 @@ function connectSSE() {
     es.onopen = () => {
       sseBackoff = 1000;
       document.getElementById('conn-badge')?.classList.add('connected');
+      if (sseWasConnected && sseDisconnectedAt) {
+        const downSec = Math.round((Date.now() - sseDisconnectedAt) / 1000);
+        showToast(`Соединение восстановлено (было offline ${downSec}с)`, 'success', 3500);
+      }
+      sseWasConnected = true;
+      sseDisconnectedAt = null;
       console.log('[SSE] Connected');
     };
 
@@ -1155,7 +1289,12 @@ function connectSSE() {
       es.close();
       sseConn = null;
       document.getElementById('conn-badge')?.classList.remove('connected');
-      sseReconnectTimer = setTimeout(connectSSE, Math.min(sseBackoff, 30000));
+      if (sseWasConnected && !sseDisconnectedAt) {
+        sseDisconnectedAt = Date.now();
+        showToast('Соединение прервано — переподключение...', 'warning', 4000);
+      }
+      const delay = Math.min(sseBackoff, 30000);
+      sseReconnectTimer = setTimeout(connectSSE, delay);
       sseBackoff = Math.min(sseBackoff * 1.5, 30000);
     };
   } catch(e) {
@@ -1185,19 +1324,48 @@ function handleSSEEvent(msg) {
     case 'task:start':
     case 'task:update':
     case 'task:dispatched': {
-      // Update task list
       const idx = APP.tasks.findIndex(t => t.id === (msg.task?.id || msg.taskId));
-      if (idx >= 0) APP.tasks[idx] = { ...APP.tasks[idx], ...(msg.task || {}) };
-      else if (msg.task) APP.tasks.unshift(msg.task);
-      renderTasks();
-      // Sync to oracle-office
+      const rawTask = msg.task || {};
+      const normTask = {
+        ...rawTask,
+        name:     rawTask.name || rawTask.task || rawTask.description || 'Задача',
+        group:    rawTask.group || rawTask.groupId || rawTask.agentName || 'Oracle',
+        time:     rawTask.time || (rawTask.startedAt ? new Date(rawTask.startedAt).toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}) : 'Только что'),
+        findings: rawTask.findings || 0,
+        progress: rawTask.progress ?? (rawTask.status==='done' ? 100 : rawTask.status==='error' ? 0 : 20),
+        results:  rawTask.results || [],
+      };
+      if (idx >= 0) APP.tasks[idx] = { ...APP.tasks[idx], ...normTask };
+      else if (msg.task) APP.tasks.unshift(normTask);
+      if (curScreen==='tasks')   renderTasks();
+      if (curScreen==='monitor') renderMonitor();
       if (msg.type === 'task:dispatched') {
         broadcastToOffice({ type: 'task:dispatched', groupId: msg.groupId, agentId: msg.agentId, label: msg.label, task: msg.task });
       }
       break;
     }
+    case 'task:complete': {
+      // Real completion from API — update progress to 100
+      const tid = msg.taskId || msg.id;
+      const cidx = APP.tasks.findIndex(t => t.id === tid);
+      if (cidx >= 0) {
+        APP.tasks[cidx].status   = msg.status || 'done';
+        APP.tasks[cidx].progress = msg.status === 'error' ? 0 : 100;
+        APP.tasks[cidx].findings = msg.findings || APP.tasks[cidx].findings;
+        if (msg.results) APP.tasks[cidx].results = msg.results;
+      }
+      // Update agent/group status
+      for (const a of APP.agents) {
+        if (a.runId === msg.runId) { a.status = 'idle'; a.runId = null; }
+      }
+      haptic[msg.status === 'error' ? 'error' : 'success']?.();
+      if (curScreen==='tasks')   renderTasks();
+      if (curScreen==='monitor') renderMonitor();
+      if (curScreen==='agents')  renderAgents();
+      broadcastToOffice({ type: 'agent:idle', runId: msg.runId });
+      break;
+    }
     case 'agent:result': {
-      // Task completed — show toast notification
       showToast(
         msg.status === 'error' ? 'Ошибка агента' : 'Задача выполнена',
         msg.agentId ? `${msg.agentId} завершил работу` : '',
@@ -1218,16 +1386,34 @@ function broadcastToOffice(msg) {
   try { iframe.contentWindow.postMessage({ source: 'oracle-miniapp', ...msg }, '*'); } catch {}
 }
 
+// Send full state sync to oracle-office dashboard
+function syncOffice() {
+  const iframe = document.getElementById('office-iframe');
+  if (!iframe?.contentWindow) return;
+  try {
+    iframe.contentWindow.postMessage({
+      source: 'oracle-miniapp',
+      type: 'sync',
+      agents: APP.agents,
+      groups: APP.groups,
+      tasks:  APP.tasks.slice(0, 30),
+      status: APP.status,
+    }, '*');
+  } catch {}
+}
+
 // Listen for messages FROM oracle-office (agent clicks etc)
 window.addEventListener('message', (e) => {
   if (e.data?.source !== 'oracle-office') return;
+  if (e.data.type === 'ready') {
+    // Office dashboard loaded — send full sync
+    syncOffice();
+  }
   if (e.data.type === 'agent:selected') {
-    // Navigate to agents screen and highlight the agent
     navigate('agents');
     highlightAgent(e.data.agentId);
   }
   if (e.data.type === 'task:dispatch') {
-    // Dispatch from office panel
     triggerTask(null, e.data.task, e.data.agentId);
   }
 });
@@ -1294,12 +1480,40 @@ async function triggerTask(groupId, taskText) {
   return res.json();
 }
 
+// ── Safe render wrapper — prevents one broken screen from crashing others ──
+function safeRender(name, fn) {
+  try {
+    fn();
+  } catch(e) {
+    console.error(`[render:${name}]`, e);
+    // Locate the screen container and show inline error
+    const screenId = {
+      renderAgents: 'screen-agents',
+      renderGroups: 'groups-list',
+      renderAgentList: 'agent-list',
+      renderMonitor: 'screen-monitor',
+      renderTasks: 'screen-tasks',
+      renderProjects: 'screen-projects',
+    }[name];
+    if (screenId) {
+      const el = document.getElementById(screenId);
+      if (el && !el.querySelector('.render-error')) {
+        const errDiv = document.createElement('div');
+        errDiv.className = 'render-error';
+        errDiv.style.cssText = 'margin:16px;padding:14px 16px;background:rgba(255,59,48,0.1);border:1px solid rgba(255,59,48,0.25);border-radius:12px;font-size:12px;color:var(--red)';
+        errDiv.innerHTML = `<b>Ошибка отрисовки: ${name}</b><br><span style="opacity:0.7;font-family:monospace">${e.message}</span><br><button onclick="this.closest('.render-error').remove();${name}()" style="margin-top:8px;padding:4px 10px;border-radius:6px;border:1px solid rgba(255,59,48,0.4);background:transparent;color:var(--red);font-size:11px;cursor:pointer">Повторить</button>`;
+        el.prepend(errDiv);
+      }
+    }
+  }
+}
+
 // ── renderAll — централизованный рендер всех экранов ─────────────
 function renderAll() {
-  renderAgents();
-  renderMonitor();
-  renderTasks();
-  updateLiveMetrics();
+  safeRender('renderAgents',  renderAgents);
+  safeRender('renderMonitor', renderMonitor);
+  safeRender('renderTasks',   renderTasks);
+  try { updateLiveMetrics(); } catch(e) { console.error('[metrics]', e); }
 }
 
 // ── Обновление live-метрик в Monitor ────────────────────────────
@@ -1376,17 +1590,32 @@ function updateLiveMetrics() {
     });
 
   // Context bar — из APP.status если есть
-  const ctxUsed = s?.agents?.totalSessions || 0;
-  const ctxTotal = 100;
-  const ctxPct = Math.min(100, Math.round(ctxUsed));
   const ctxVal = document.getElementById('ctx-val');
   const ctxBar = document.getElementById('ctx-bar');
   const ctxRaw = document.getElementById('ctx-raw');
   const ctxLevel = document.getElementById('ctx-level');
-  if (ctxVal) ctxVal.textContent = `${ctxUsed} сессий`;
-  if (ctxBar) ctxBar.style.width = `${Math.min(100, ctxUsed * 5)}%`;
-  if (ctxRaw) ctxRaw.textContent = s?.agents ? `${s.agents.totalSessions} сессий / ${s.agents.totalRuns} запусков` : '—';
-  if (ctxLevel) ctxLevel.textContent = ctxUsed > 15 ? 'Высокая активность' : ctxUsed > 5 ? 'Умеренно' : 'Спокойно';
+  if (s?.agents) {
+    const totalSessions = s.agents.totalSessions ?? 0;
+    const totalRuns = s.agents.totalRuns ?? 0;
+    const activeSubagents = s.agents.activeSubagents ?? 0;
+    if (ctxVal) ctxVal.textContent = `${totalSessions} сессий`;
+    if (ctxBar) ctxBar.style.width = `${Math.min(100, Math.round(totalRuns / 50 * 100))}%`;
+    if (ctxRaw) ctxRaw.textContent = `${totalSessions} сессий / ${totalRuns} запусков`;
+    if (ctxLevel) ctxLevel.textContent = activeSubagents > 3 ? 'Высокая активность' : activeSubagents > 0 ? 'Умеренно' : 'Спокойно';
+  } else {
+    if (ctxVal) ctxVal.textContent = '—';
+    if (ctxBar) ctxBar.style.width = '0%';
+    if (ctxRaw) ctxRaw.textContent = '—';
+    if (ctxLevel) ctxLevel.textContent = '—';
+  }
+
+  // Last updated timestamp
+  const lastUpdEl = document.getElementById('monitor-last-updated');
+  if (lastUpdEl) lastUpdEl.textContent = `Обновлено: ${new Date().toLocaleTimeString('ru', {hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
+
+  // Memory usage (system info)
+  const memEl = document.getElementById('live-memory');
+  if (memEl) memEl.textContent = s?.system?.memoryMb !== undefined ? `${s.system.memoryMb} MB` : '—';
 
   // Agents subtitle на экране Агенты
   const agSub = document.getElementById('agents-sub');
@@ -1422,6 +1651,7 @@ function navigate(id) {
 
   if (id === 'graph' && !graphInited) { setTimeout(initGraph, 80); graphInited = true; }
   if (id === 'office') initOfficeScreen();
+  if (id === 'projects') loadProjects();
 }
 
 document.querySelectorAll('.nav-item').forEach(el => {
@@ -1472,8 +1702,10 @@ function badge(status) {
 
 function initGraph() {
   const container = document.getElementById('graph-container');
-  const W = container.clientWidth;
-  const H = container.clientHeight;
+  // clientWidth/Height = 0 when screen is hidden (opacity:0 during transition)
+  // Use screen dimensions as fallback
+  const W = container.clientWidth  || window.innerWidth  || 390;
+  const H = container.clientHeight || (window.innerHeight - 120) || 600;
   const svg = d3.select('#graph-svg');
   svg.selectAll('*').remove();
 
@@ -1511,17 +1743,31 @@ function initGraph() {
   });
 
   // Force simulation
+  const nodeCount = nodes.length;
   const sim = d3.forceSimulation(nodes)
-    .force('link',    d3.forceLink(links).id(d=>d.id).distance(85).strength(0.4))
-    .force('charge',  d3.forceManyBody().strength(-230))
-    .force('center',  d3.forceCenter(W/2, H/2))
-    .force('collide', d3.forceCollide().radius(d => (d.r || 10) + 18));
+    .force('link',    d3.forceLink(links).id(d=>d.id)
+      .distance(d => (d.source.phantom || d.target.phantom) ? 55 : 95)
+      .strength(0.35))
+    .force('charge',  d3.forceManyBody()
+      .strength(d => d.phantom ? -80 : -280)
+      .distanceMax(350))
+    .force('center',  d3.forceCenter(W/2, H/2).strength(0.06))
+    .force('collide', d3.forceCollide().radius(d => (d.r || 6) + 14).strength(0.7))
+    .alphaDecay(0.025)
+    .velocityDecay(0.4);
 
   // Links
   const linkSel = root.append('g')
     .selectAll('line').data(links).join('line')
-    .attr('stroke', 'rgba(255,255,255,0.07)')
-    .attr('stroke-width', 1);
+    .attr('stroke', d => {
+      const s = nodes.find(n => n.id === (d.source.id || d.source));
+      if (!s || s.phantom) return 'rgba(255,255,255,0.04)';
+      return `${CAT_COLOR[s.cat] || '#64D2FF'}30`;
+    })
+    .attr('stroke-width', d => {
+      const s = nodes.find(n => n.id === (d.source.id || d.source));
+      return (!s || s.phantom) ? 0.5 : 1;
+    });
 
   // Node groups
   const nodeSel = root.append('g')
@@ -1546,18 +1792,25 @@ function initGraph() {
 
   // Main circles
   nodeSel.append('circle')
-    .attr('r', d=>d.r||10)
-    .attr('fill', d=>`${CAT_COLOR[d.cat] || '#64D2FF'}1A`)
-    .attr('stroke', d=>CAT_COLOR[d.cat] || '#64D2FF')
-    .attr('stroke-width', d=>d.pulse?2:1.5)
-    .attr('filter', d=>`url(#${CAT_GLOW[d.cat] || 'glow-c'})`);
+    .attr('r', d=>d.r||6)
+    .attr('fill', d => d.phantom ? 'rgba(255,255,255,0.04)' : `${CAT_COLOR[d.cat] || '#64D2FF'}1A`)
+    .attr('stroke', d => d.phantom ? 'rgba(255,255,255,0.15)' : (CAT_COLOR[d.cat] || '#64D2FF'))
+    .attr('stroke-width', d => d.phantom ? 0.5 : (d.pulse ? 2 : 1.5))
+    .attr('stroke-dasharray', d => d.phantom ? '3,3' : null)
+    .attr('filter', d => d.phantom ? null : `url(#${CAT_GLOW[d.cat] || 'glow-c'})`);
 
-  // Labels
-  nodeSel.append('text')
-    .text(d=>d.label)
-    .attr('dy', d=>(d.r||10)+13)
-    .attr('fill','rgba(255,255,255,0.65)')
-    .attr('font-size','11px')
+  // Labels — only real nodes, truncated
+  nodeSel.filter(d => !d.phantom)
+    .append('text')
+    .text(d => {
+      const lbl = d.label || d.id || '';
+      // Show last path segment for long IDs
+      const short = lbl.includes('/') ? lbl.split('/').pop() : lbl;
+      return short.length > 20 ? short.slice(0,18)+'…' : short;
+    })
+    .attr('dy', d=>(d.r||6)+12)
+    .attr('fill', d => (d.degree||0)>=3 ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.4)')
+    .attr('font-size', d => (d.degree||0)>=4 ? '11px' : '9px')
     .attr('text-anchor','middle')
     .attr('font-family','-apple-system,BlinkMacSystemFont,system-ui')
     .style('pointer-events','none');
@@ -1615,6 +1868,71 @@ function showNodePanel(node) {
 }
 
 function closeNodePanel() { document.getElementById('node-panel').classList.remove('open'); }
+
+// ── Graph Search (vault semantic search) ─────────────────────────
+let graphSearchTimer = null;
+function debounceGraphSearch(q) {
+  clearTimeout(graphSearchTimer);
+  graphSearchTimer = setTimeout(() => runGraphSearch(q), 350);
+}
+
+async function runGraphSearch(q) {
+  if (!q || q.length < 2) {
+    // Reset highlights
+    d3.selectAll('.node circle').attr('stroke', 'none').attr('stroke-width', 0);
+    return;
+  }
+  const h = buildAuthHeaders();
+  try {
+    const data = await fetch(`${API_BASE}/api/vault/search?q=${encodeURIComponent(q)}&k=8&hops=1`, { headers: h }).then(r => r.json());
+    const foundIds = new Set(data.results.map(r => r.id));
+    // Highlight matching nodes
+    d3.selectAll('.node').each(function(d) {
+      const isMatch = foundIds.has(d.id);
+      d3.select(this).select('circle')
+        .transition().duration(250)
+        .attr('stroke', isMatch ? '#FFD60A' : 'none')
+        .attr('stroke-width', isMatch ? 2 : 0)
+        .attr('r', isMatch ? Math.max((d.degree||1)*2+7, 12) : Math.max((d.degree||1)*2+5, 8));
+    });
+    // Show search results in panel
+    const panel = document.getElementById('panel-body');
+    if (panel && data.results.length > 0) {
+      panel.innerHTML = `
+        <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--t2)">
+          Найдено: ${data.results.length} · ~${data.tokenEstimate} токенов контекста
+        </div>
+        ${data.results.map(r => `
+          <div style="margin-bottom:10px;padding:10px;background:rgba(255,215,10,0.06);border-radius:10px;border:1px solid rgba(255,215,10,0.15);cursor:pointer"
+               onclick="loadNodeDetail('${r.id}')">
+            <div style="font-size:13px;font-weight:600">${r.title}</div>
+            <div style="font-size:11px;color:var(--t3);margin-top:3px">${r.tags.slice(0,3).join(' · ')}</div>
+          </div>`).join('')}
+        <div style="margin-top:12px;padding:10px;background:rgba(255,255,255,0.03);border-radius:10px">
+          <div style="font-size:11px;color:var(--t3)">Контекстная цепь для агентов:</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:4px;font-family:monospace">/api/vault/search?q=${encodeURIComponent(q)}</div>
+        </div>`;
+      document.getElementById('node-panel').classList.add('open');
+      tg?.BackButton?.show();
+    }
+  } catch(e) { console.error('[graph-search]', e); }
+}
+
+async function loadNodeDetail(nodeId) {
+  const h = buildAuthHeaders();
+  try {
+    const data = await fetch(`${API_BASE}/api/vault/node/${nodeId}`, { headers: h }).then(r => r.json());
+    if (!data.ok) return;
+    const n = data.node;
+    document.getElementById('panel-body').innerHTML = `
+      <div class="mtitle" style="font-size:16px;margin-bottom:6px">${n.title}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        ${n.tags.map(t => `<span style="font-size:10px;padding:2px 7px;border-radius:100px;background:rgba(255,255,255,0.07)">${t}</span>`).join('')}
+      </div>
+      <div style="font-size:12px;color:var(--t2);line-height:1.7;white-space:pre-wrap">${n.body.slice(0,1200)}</div>
+      ${n.links.length ? `<div style="margin-top:12px;font-size:11px;color:var(--t3)">Связи: ${n.links.slice(0,6).map(l => `<span style="color:var(--blue)">${l}</span>`).join(', ')}</div>` : ''}`;
+  } catch {}
+}
 
 // Zoom buttons
 document.getElementById('zoom-in') .addEventListener('click', () => svgRef?.transition().duration(280).call(zoomRef.scaleBy, 1.4));
@@ -1958,35 +2276,24 @@ document.getElementById('run-task').addEventListener('click', async () => {
     renderTasks();
     renderMonitor();
     renderAgents();
-    simulateProgress(newTask, g);
+    // Real progress via SSE task:update events — no simulate
+    showToast('Задача отправлена', 'Прогресс придёт через SSE', 'success', 2500);
   } catch(e) {
     haptic.error();
     showToast('Ошибка запуска', 'Не удалось отправить задачу на сервер', 'error');
-    // Убираем задачу из списка при ошибке
     APP.tasks = APP.tasks.filter(t => t.id !== newTask.id);
+    TASKS_MOCK = TASKS_MOCK.filter(t => t.id !== newTask.id);
+    g.status = 'idle';
   } finally {
     btn.disabled = false;
     btn.textContent = 'Запустить';
   }
 });
 
-function simulateProgress(task, group) {
-  const iv = setInterval(() => {
-    task.progress = Math.min(100, task.progress + Math.random()*18 + 4 | 0);
-    if (task.progress >= 100) {
-      task.status = 'done';
-      group.status = 'idle';
-      const agents = getAgents();
-      (group.agents || []).forEach(id => { const a=agents.find(x=>x.id===id); if(a) a.status='idle'; });
-      (task.results || []).forEach(r => r.s === 'waiting' || r.s === 'running' ? r.s = 'done' : null);
-      clearInterval(iv);
-      haptic.success();
-    }
-    if (curScreen==='tasks')   renderTasks();
-    if (curScreen==='monitor') renderMonitor();
-    if (curScreen==='agents')  renderAgents();
-  }, 1600);
-}
+// ── Real task progress via SSE ─────────────────────────────────
+// task:update event → { taskId, progress, status, findings }
+// task:complete event → { taskId, status:'done'|'error', results }
+// SSE handler in handleSSEEvent() updates APP.tasks directly
 
 // ================================================================
 // ORACLE OFFICE SCREEN
@@ -1994,6 +2301,190 @@ function simulateProgress(task, group) {
 
 let officeInited = false;
 let officeConnTimer = null;
+
+// ================================================================
+// SCREEN: PROJECTS (Symphony Bridge)
+// ================================================================
+
+async function loadProjects() {
+  const h = buildAuthHeaders();
+  try {
+    const data = await fetch(`${API_BASE}/api/projects`, { headers: h }).then(r => r.json());
+    APP.projects  = data.projects  || [];
+    APP.issues    = data.issues    || [];
+    APP.symphonyRunning = data.running || {};
+    APP.lastPoll  = data.lastPoll;
+    renderProjects();
+
+    // Update nav dot if there are pending issues
+    const pending = APP.issues.filter(i => i.state === 'open' && !i.labels?.includes('oracle-in-progress'));
+    const dot = document.getElementById('projects-dot');
+    if (dot) dot.style.background = pending.length > 0 ? 'var(--orange)' : '';
+  } catch {}
+}
+
+function renderProjects() {
+  const projEl = document.getElementById('projects-list');
+  const issuesEl = document.getElementById('issues-list');
+  const subEl = document.getElementById('projects-sub');
+  if (!projEl || !issuesEl) return;
+
+  const projects = APP.projects || [];
+  const issues   = APP.issues   || [];
+
+  // Summary stats
+  const allIssues = APP.issues || [];
+  const totalProjects = projects.length;
+  const totalDone = allIssues.filter(i => i.labels?.includes('oracle-complete')).length;
+  const totalRunning = Object.keys(APP.symphonyRunning || {}).length;
+  const totalPending = allIssues.filter(i => i.state==='open' && !i.labels?.includes('oracle-complete')).length;
+
+  // Update subtitle
+  if (subEl) {
+    const gh = projects.filter(p => p.provider === 'github').length;
+    const gl = projects.filter(p => p.provider === 'gitlab').length;
+    subEl.textContent = `${projects.length} репо (${gh} GitHub · ${gl} GitLab) · ${issues.length} задач`;
+  }
+
+  // Projects list
+  if (!projects.length) {
+    projEl.innerHTML = `<div style="text-align:center;padding:32px;color:var(--t3);font-size:13px">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" style="margin-bottom:12px;opacity:0.4"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+      <div>Нет подключённых репозиториев</div>
+      <div style="margin-top:6px;opacity:0.6">Нажмите + Репо чтобы добавить GitHub/GitLab проект</div>
+    </div>`;
+  } else {
+    projEl.innerHTML = projects.map(p => {
+      const providerColor = p.provider === 'github' ? '#fff' : '#FC6D26';
+      const issueCount = issues.filter(i => i.repo === p.repo).length;
+      const runningCount = Object.keys(APP.symphonyRunning || {}).filter(k => k.includes(p.repo)).length;
+      // Per-project analytics
+      const projectIssues = APP.issues.filter(i => i.projectId === p.id || i.repo === p.repo);
+      const total   = projectIssues.length;
+      const done    = projectIssues.filter(i => i.labels?.includes('oracle-complete')).length;
+      const running = projectIssues.filter(i => i.labels?.includes('oracle-in-progress') || APP.symphonyRunning[i.id]).length;
+      const pending = projectIssues.filter(i => i.state==='open' && !i.labels?.includes('oracle-complete') && !i.labels?.includes('oracle-in-progress')).length;
+      const rate    = total ? Math.round((done / total) * 100) : 0;
+      return `
+      <div class="card" style="margin-bottom:10px">
+        <div class="flex-between">
+          <div class="flex-row gap-sm">
+            <div style="width:28px;height:28px;border-radius:6px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center">
+              ${p.provider === 'github'
+                ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/></svg>'
+                : '<svg width="14" height="14" viewBox="0 0 24 24" fill="#FC6D26"><path d="m21.94 13.11-1.02-3.15L18.9 3.1a.46.46 0 0 0-.88 0L15.99 9.96H8.01L5.98 3.1a.46.46 0 0 0-.88 0L3.08 9.96 2.06 13.1a.93.93 0 0 0 .34 1.04L12 21l9.6-6.86a.93.93 0 0 0 .34-1.03"/></svg>'}
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:14px;font-weight:600">${p.name || p.repo}</div>
+              <div style="font-size:11px;color:var(--t3)">${p.provider} · ${p.repo} · lbl: ${p.label || 'oracle-task'}</div>
+              <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+                <span style="font-size:10px;padding:2px 7px;border-radius:100px;background:rgba(0,217,126,0.1);color:var(--green)">${done} выполнено</span>
+                ${running ? `<span style="font-size:10px;padding:2px 7px;border-radius:100px;background:rgba(74,158,255,0.1);color:var(--blue)">${running} в работе</span>` : ''}
+                ${pending ? `<span style="font-size:10px;padding:2px 7px;border-radius:100px;background:rgba(255,255,255,0.06);color:var(--t2)">${pending} ожидают</span>` : ''}
+                ${total ? `<span style="font-size:10px;color:var(--t3)">${rate}% выполнено</span>` : ''}
+              </div>
+              ${total ? `<div style="margin-top:5px;height:2px;background:var(--border);border-radius:1px;overflow:hidden"><div style="height:100%;width:${rate}%;background:var(--green);transition:width 0.5s"></div></div>` : ''}
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+            ${runningCount > 0 ? `<span style="font-size:11px;color:var(--green);background:rgba(34,197,94,0.1);padding:2px 8px;border-radius:100px">${runningCount} активных</span>` : ''}
+            <span style="font-size:11px;color:var(--t3)">${issueCount} issues</span>
+            <button class="btn btn-ghost btn-sm" onclick="deleteProject('${p.id}')" style="font-size:11px;color:var(--red)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Issues list
+  const openIssues = issues.filter(i => i.state === 'open');
+  if (!openIssues.length) {
+    issuesEl.innerHTML = `<div style="text-align:center;padding:24px;color:var(--t3);font-size:13px">
+      ${projects.length ? 'Нет открытых задач с лейблом oracle-task' : 'Добавьте репозиторий выше'}
+    </div>`;
+  } else {
+    issuesEl.innerHTML = openIssues.slice(0, 20).map(i => {
+      const isRunning = (APP.symphonyRunning || {})[i.key];
+      const statusDot = isRunning
+        ? '<span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;margin-right:6px"></span>'
+        : '<span style="width:6px;height:6px;border-radius:50%;background:var(--t3);display:inline-block;margin-right:6px"></span>';
+      return `
+      <div class="card" style="margin-bottom:8px;cursor:pointer" onclick="openIssue('${i.key}')">
+        <div class="flex-between mb-sm">
+          <div style="font-size:12px;color:var(--t3)">${statusDot}${i.identifier}</div>
+          <div style="font-size:11px;color:var(--t3)">${i.provider}</div>
+        </div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:6px">${i.title}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${(i.labels || []).slice(0,4).map(l =>
+            `<span style="font-size:10px;padding:2px 7px;border-radius:100px;background:rgba(255,255,255,0.07);color:var(--t2)">${l}</span>`
+          ).join('')}
+        </div>
+        ${!isRunning ? `<button class="btn btn-primary btn-sm" style="margin-top:10px;width:100%" onclick="event.stopPropagation();dispatchIssue('${i.key}')">Запустить агентов</button>` : `<div style="margin-top:8px;font-size:12px;color:var(--green)">Агенты работают...</div>`}
+      </div>`;
+    }).join('');
+  }
+
+  // Update summary KPI counters
+  const ps = document.getElementById('proj-stat-total');  if(ps) ps.textContent = totalProjects;
+  const pd = document.getElementById('proj-stat-done');   if(pd) pd.textContent = totalDone;
+  const pr = document.getElementById('proj-stat-running');if(pr) pr.textContent = totalRunning;
+  const pp = document.getElementById('proj-stat-pending');if(pp) pp.textContent = totalPending;
+}
+
+async function saveProject() {
+  const provider = document.getElementById('proj-provider').value;
+  const repo     = document.getElementById('proj-repo').value.trim();
+  const label    = document.getElementById('proj-label').value.trim() || 'oracle-task';
+  const group    = document.getElementById('proj-group').value;
+  if (!repo) { showToast('Ошибка', 'Укажите репозиторий', 'error'); return; }
+
+  const h = { ...buildAuthHeaders(), 'Content-Type': 'application/json' };
+  const r = await fetch(`${API_BASE}/api/projects`, {
+    method: 'POST', headers: h,
+    body: JSON.stringify({ provider, repo, label, defaultGroup: group })
+  });
+  const data = await r.json();
+  if (data.ok) {
+    closeModal();
+    showToast('Добавлено', `${provider}/${repo}`, 'success');
+    await loadProjects();
+  } else {
+    showToast('Ошибка', data.error || 'Не удалось добавить', 'error');
+  }
+}
+
+async function deleteProject(id) {
+  const h = { ...buildAuthHeaders(), 'Content-Type': 'application/json' };
+  await fetch(`${API_BASE}/api/projects/delete`, {
+    method: 'POST', headers: h, body: JSON.stringify({ id })
+  });
+  await loadProjects();
+}
+
+async function pollProjects() {
+  const h = { ...buildAuthHeaders(), 'Content-Type': 'application/json' };
+  showToast('Синхронизация', 'Опрашиваем GitHub/GitLab...', 'info');
+  await fetch(`${API_BASE}/api/projects/poll`, { method: 'POST', headers: h, body: '{}' });
+  await loadProjects();
+}
+
+async function dispatchIssue(issueKey) {
+  const h = { ...buildAuthHeaders(), 'Content-Type': 'application/json' };
+  const r = await fetch(`${API_BASE}/api/projects/dispatch`, {
+    method: 'POST', headers: h, body: JSON.stringify({ issueKey })
+  });
+  const data = await r.json();
+  if (data.ok) {
+    showToast('Запущено', `Task ${data.taskId}`, 'success');
+    await loadProjects();
+  }
+}
+
+function openIssue(key) {
+  const issue = (APP.issues || []).find(i => i.key === key);
+  if (issue?.url) window.open(issue.url, '_blank');
+}
 
 function initOfficeScreen() {
   if (officeInited) return;
@@ -2045,12 +2536,26 @@ function init() {
   // Kick-off graph (it's the first screen)
   setTimeout(() => { initGraph(); graphInited = true; }, 250);
 
+  // Global error handler — log but don't crash UI
+  window.onerror = (msg, src, line, col, err) => {
+    console.error('[global]', msg, `${src}:${line}:${col}`, err);
+    return true; // prevent default browser error dialog
+  };
+  window.onunhandledrejection = (e) => {
+    console.error('[promise]', e.reason);
+  };
+
   // Start SSE real-time connection
   setTimeout(connectSSE, 800);
 
   // Hide loading screen
   document.getElementById('load-fill').style.width = '100%';
   setTimeout(() => document.getElementById('loading').classList.add('gone'), 1700);
+  // Failsafe: force hide after 4s regardless of any errors
+  setTimeout(() => {
+    const l = document.getElementById('loading');
+    if (l) { l.style.display = 'none'; }
+  }, 4000);
 }
 
 // Boot
