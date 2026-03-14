@@ -93,10 +93,11 @@
       flex-direction: column;
       opacity: 0;
       pointer-events: none;
-      transition: opacity var(--t-mid);
+      transform: translateY(8px);
+      transition: opacity var(--t-mid), transform var(--t-mid);
       z-index: 10;
     }
-    .screen.active { opacity: 1; pointer-events: all; }
+    .screen.active { opacity: 1; pointer-events: all; transform: translateY(0); }
 
     .screen-header {
       padding: 14px var(--sp) 12px;
@@ -445,7 +446,7 @@
       text-align: center;
       margin-bottom: var(--sp-lg);
     }
-    .hero-icon  { font-size: 44px; margin-bottom: 12px; }
+    .hero-icon  { width:64px; height:64px; margin: 0 auto 16px; display:flex; align-items:center; justify-content:center; background:rgba(79,142,247,0.08); border-radius:20px; border:1px solid rgba(79,142,247,0.18); }
     .hero-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
     .hero-desc  { font-size: 14px; color: var(--t2); line-height: 1.5; margin-bottom: 18px; }
 
@@ -582,17 +583,29 @@
 
     /* SSE live indicator */
     #conn-badge {
-      position: fixed; top: 10px; right: 10px; z-index: 200;
-      width: 8px; height: 8px; border-radius: 50%;
-      background: #333; transition: background 0.4s, box-shadow 0.4s;
+      position: fixed; bottom: calc(var(--nav-h) + 10px); right: 14px; z-index: 200;
+      display: flex; align-items: center; gap: 5px;
+      background: rgba(8,8,16,0.85); border: 1px solid var(--border);
+      border-radius: 100px; padding: 4px 8px 4px 6px;
+      font-size: 10px; font-weight: 600; color: var(--t3);
+      backdrop-filter: blur(10px);
+      transition: all 0.4s;
       pointer-events: none;
+      letter-spacing: 0.04em;
     }
-    #conn-badge.connected {
-      background: #34C759;
-      box-shadow: 0 0 8px #34C759, 0 0 16px rgba(52,199,89,0.4);
+    #conn-badge::before {
+      content: '';
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #333; flex-shrink: 0;
+      transition: background 0.4s, box-shadow 0.4s;
+    }
+    #conn-badge.connected { color: var(--green); border-color: rgba(34,197,94,0.25); }
+    #conn-badge.connected::before {
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
       animation: sse-pulse 2s infinite;
     }
-    @keyframes sse-pulse { 0%,100% { box-shadow: 0 0 8px #34C759; } 50% { box-shadow: 0 0 14px #34C759, 0 0 28px rgba(52,199,89,0.3); } }
+    @keyframes sse-pulse { 0%,100% { box-shadow: 0 0 6px var(--green); } 50% { box-shadow: 0 0 12px var(--green), 0 0 24px rgba(34,197,94,0.3); } }
 
     /* Agent highlight */
     @keyframes highlight-pulse { 0%,100% { box-shadow: none; } 50% { box-shadow: 0 0 0 2px var(--blue), 0 0 20px rgba(0,122,255,0.3); } }
@@ -602,7 +615,7 @@
 </head>
 
 <body>
-<div id="conn-badge" title="SSE: real-time connection"></div>
+<div id="conn-badge" title="SSE real-time">SSE</div>
 <div id="app">
 
   <!-- ======== LOADING ======== -->
@@ -666,7 +679,7 @@
       </div>
     </div>
 
-    <button class="fab" id="fab-group">＋</button>
+    <button class="fab" id="fab-group"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
   </div>
 
   <!-- ======== SCREEN: MONITOR ======== -->
@@ -676,7 +689,7 @@
         <div class="screen-title">Монитор</div>
         <div class="screen-sub" id="monitor-updated-sub">Обновлено только что</div>
       </div>
-      <span class="badge b-ok"><span class="bdot"></span>Live</span>
+      <span class="badge b-idle" id="monitor-api-badge"><span class="bdot"></span><span id="monitor-api-label">—</span></span>
     </div>
 
     <div class="scroll-content">
@@ -721,19 +734,19 @@
           </div>
           <div class="card metric-card">
             <div class="metric-label">Контекст</div>
-            <div class="metric-value" style="color:var(--blue)" id="ctx-val">49%</div>
-            <div class="metric-sub">~100K токенов</div>
+            <div class="metric-value" style="color:var(--blue)" id="ctx-val">—</div>
+            <div class="metric-sub">Контекст сессии</div>
           </div>
         </div>
         <div class="metrics-grid">
           <div class="card metric-card">
             <div class="metric-label">STT</div>
-            <div class="metric-value" style="color:var(--green);font-size:17px">✓ Online</div>
+            <div class="metric-value" style="font-size:14px;font-weight:700;margin-top:2px" id="stt-status">—</div>
             <div class="metric-sub">Deepgram nova-3</div>
           </div>
           <div class="card metric-card">
             <div class="metric-label">TTS</div>
-            <div class="metric-value" style="color:var(--green);font-size:17px">✓ Online</div>
+            <div class="metric-value" style="font-size:14px;font-weight:700;margin-top:2px" id="tts-status">—</div>
             <div class="metric-sub">Google TTS · RU</div>
           </div>
         </div>
@@ -744,13 +757,13 @@
         <div class="card" style="padding:14px">
           <div class="flex-between mb-sm">
             <span style="font-size:14px;font-weight:600">Потребление контекста</span>
-            <span style="font-size:12px;color:var(--t2)">49 152 / 100 000</span>
+            <span style="font-size:12px;color:var(--t2)" id="ctx-raw">—</span>
           </div>
           <div class="progress">
             <div class="prog-fill prog-blue" style="width:0%" id="ctx-bar"></div>
           </div>
           <div class="flex-between" style="margin-top:8px">
-            <span style="font-size:11px;color:var(--t3)">Уровень: безопасно</span>
+            <span style="font-size:11px;color:var(--t3)" id="ctx-level">—</span>
             <span style="font-size:11px;color:var(--t3)">Предел 90%</span>
           </div>
         </div>
@@ -783,7 +796,7 @@
 
     <div class="scroll-content">
       <div class="launch-hero">
-        <div class="hero-icon">🚀</div>
+        <div class="hero-icon"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.5-1.5 3.5-.5 4.5s3 1 4.5-.5l1.5-1.5-4-4-1.5 1.5z"/><path d="M19.5 4.5s-2.5-.5-5 2l-6.5 6.5 4 4 6.5-6.5c2.5-2.5 2-5 2-5z"/><circle cx="13.5" cy="10.5" r="1.5"/></svg></div>
         <div class="hero-title">Запустить команду</div>
         <div class="hero-desc">Выберите группу агентов и поставьте задачу — Oracle оркестрирует параллельное выполнение.</div>
         <button class="btn btn-primary" id="btn-launch" style="width:100%;font-size:15px">Запустить группу</button>
@@ -1326,6 +1339,53 @@ function updateLiveMetrics() {
   if (monSubEl && APP.lastUpdate) {
     const d = new Date(APP.lastUpdate);
     monSubEl.textContent = `Обновлено в ${d.toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' })}`;
+  }
+
+  // Monitor API badge — отражает SSE статус
+  const badge = document.getElementById('monitor-api-badge');
+  const label = document.getElementById('monitor-api-label');
+  if (badge && label) {
+    const connected = document.getElementById('conn-badge')?.classList.contains('connected');
+    badge.className = connected ? 'badge b-ok' : 'badge b-err';
+    label.textContent = connected ? 'Live' : 'Offline';
+  }
+
+  // STT / TTS статус — проверяем через /health
+  fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(3000) })
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      const sttEl = document.getElementById('stt-status');
+      const ttsEl = document.getElementById('tts-status');
+      if (d?.ok) {
+        if (sttEl) { sttEl.textContent = 'Online'; sttEl.style.color = 'var(--green)'; }
+        if (ttsEl) { ttsEl.textContent = 'Online'; ttsEl.style.color = 'var(--green)'; }
+      }
+    })
+    .catch(() => {
+      const sttEl = document.getElementById('stt-status');
+      const ttsEl = document.getElementById('tts-status');
+      if (sttEl) { sttEl.textContent = 'Offline'; sttEl.style.color = 'var(--red)'; }
+      if (ttsEl) { ttsEl.textContent = 'Offline'; ttsEl.style.color = 'var(--red)'; }
+    });
+
+  // Context bar — из APP.status если есть
+  const ctxUsed = s?.agents?.totalSessions || 0;
+  const ctxTotal = 100;
+  const ctxPct = Math.min(100, Math.round(ctxUsed));
+  const ctxVal = document.getElementById('ctx-val');
+  const ctxBar = document.getElementById('ctx-bar');
+  const ctxRaw = document.getElementById('ctx-raw');
+  const ctxLevel = document.getElementById('ctx-level');
+  if (ctxVal) ctxVal.textContent = `${ctxUsed} сессий`;
+  if (ctxBar) ctxBar.style.width = `${Math.min(100, ctxUsed * 5)}%`;
+  if (ctxRaw) ctxRaw.textContent = s?.agents ? `${s.agents.totalSessions} сессий / ${s.agents.totalRuns} запусков` : '—';
+  if (ctxLevel) ctxLevel.textContent = ctxUsed > 15 ? 'Высокая активность' : ctxUsed > 5 ? 'Умеренно' : 'Спокойно';
+
+  // Agents subtitle на экране Агенты
+  const agSub = document.getElementById('agents-sub');
+  if (agSub) {
+    const groups = getGroups(); const agents = getAgents();
+    if (groups.length) agSub.textContent = `${groups.length} групп · ${agents.length} агентов`;
   }
 }
 
