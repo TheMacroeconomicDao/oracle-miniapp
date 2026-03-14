@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+  <title>Oracle Office</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{width:100%;height:100%;overflow:hidden;background:#06060f;color:#fff;
+      font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',system-ui,sans-serif;
+      -webkit-font-smoothing:antialiased}
+    #root{width:100%;height:100%;position:relative;overflow:hidden}
+    canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;width:100%;height:100%}
+    ::-webkit-scrollbar{display:none}
+
+    /* Agent Legend */
+    #legend{
+      position:absolute;top:10px;left:8px;right:48px;
+      display:flex;flex-wrap:wrap;gap:4px;z-index:20;pointer-events:none
+    }
+    .legend-chip{
+      display:flex;align-items:center;gap:4px;
+      background:rgba(8,8,22,0.88);border:1px solid transparent;
+      border-radius:6px;padding:3px 7px;font-size:10px;
+      backdrop-filter:blur(8px);transition:all 0.3s
+    }
+    .legend-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+    /* Connection badge */
+    #conn{
+      position:absolute;top:10px;right:8px;z-index:25;
+      display:flex;align-items:center;gap:4px;
+      background:rgba(8,8,22,0.9);border:1px solid rgba(255,255,255,0.08);
+      border-radius:7px;padding:4px 8px;font-size:10px
+    }
+    #conn-dot{width:6px;height:6px;border-radius:50%;background:#555;transition:background 0.4s}
+
+    /* Zoom controls */
+    #zoom{
+      position:absolute;bottom:80px;right:10px;z-index:20;
+      display:flex;flex-direction:column;align-items:center;gap:4px
+    }
+    .zoom-btn{
+      width:34px;height:34px;background:rgba(8,8,22,0.92);
+      border:1px solid rgba(100,210,255,0.2);border-radius:9px;
+      color:#64D2FF;font-size:18px;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+      backdrop-filter:blur(10px);transition:background 0.15s;user-select:none
+    }
+    .zoom-btn:active{background:rgba(100,210,255,0.1)}
+    #zoom-val{font-size:9px;color:rgba(255,255,255,0.35);font-family:monospace}
+
+    /* Agent panel */
+    #panel{
+      position:absolute;bottom:0;left:0;right:0;z-index:50;
+      background:rgba(8,8,22,0.97);border-radius:18px 18px 0 0;
+      border-top:1px solid rgba(100,210,255,0.15);
+      padding:0 16px 32px;
+      transform:translateY(100%);transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+      backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+      max-height:65%;overflow-y:auto;box-shadow:0 -12px 48px rgba(0,0,0,0.6)
+    }
+    #panel.open{transform:translateY(0)}
+    #panel-handle{width:36px;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;margin:12px auto 14px}
+    #panel-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+    #panel-icon{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+    #panel-info{flex:1;min-width:0}
+    #panel-name{font-size:17px;font-weight:700;color:#fff}
+    #panel-domain{font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px}
+    #panel-status{display:flex;align-items:center;gap:5px;font-size:11px;text-transform:uppercase;letter-spacing:0.05em}
+    #panel-sdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+    #panel-close{width:30px;height:30px;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.6);border-radius:8px;cursor:pointer;font-size:14px;flex-shrink:0}
+    .panel-section{margin-bottom:12px}
+    .panel-label{font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px}
+    .activity-bar{
+      display:flex;align-items:center;gap:8px;
+      padding:8px 10px;border-radius:9px;margin-bottom:10px
+    }
+    .activity-pulse{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+    .task-item{display:flex;align-items:flex-start;gap:7px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05)}
+    .task-item:last-child{border-bottom:none}
+    .task-dot{width:6px;height:6px;border-radius:50%;margin-top:4px;flex-shrink:0}
+    .task-text{font-size:12px;color:rgba(255,255,255,0.7);line-height:1.45}
+    #dispatch-row{display:flex;gap:8px;margin-top:12px}
+    #dispatch-input{
+      flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(100,210,255,0.3);
+      border-radius:9px;padding:9px 12px;color:#fff;font-size:13px;
+      font-family:inherit;outline:none;min-width:0
+    }
+    #dispatch-input::placeholder{color:rgba(255,255,255,0.25)}
+    #dispatch-btn{
+      padding:9px 14px;border:none;border-radius:9px;
+      font-size:13px;font-weight:600;cursor:pointer;
+      transition:all 0.2s;flex-shrink:0;font-family:inherit
+    }
+
+    /* Status bar at bottom of canvas */
+    #statusbar{
+      position:absolute;bottom:0;left:0;right:0;height:22px;
+      background:rgba(8,8,16,0.92);border-top:1px solid rgba(100,210,255,0.1);
+      display:flex;align-items:center;justify-content:space-between;
+      padding:0 10px;font-size:10px;color:rgba(100,210,255,0.7);
+      font-family:monospace;z-index:15;pointer-events:none
+    }
+
+    @keyframes glow-pulse{0%,100%{box-shadow:0 0 6px currentColor}50%{box-shadow:0 0 12px currentColor}}
+    @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+<div id="root">
+  <canvas id="canvas"></canvas>
+
+  <!-- Legend chips -->
+  <div id="legend"></div>
+
+  <!-- Connection badge -->
+  <div id="conn">
+    <div id="conn-dot"></div>
+    <span id="conn-label" style="color:rgba(255,255,255,0.4)">CONNECT</span>
+  </div>
+
+  <!-- Zoom -->
+  <div id="zoom">
+    <button class="zoom-btn" id="zoom-in">+</button>
+    <div id="zoom-val">2.5×</div>
+    <button class="zoom-btn" id="zoom-out">−</button>
+  </div>
+
+  <!-- Status bar -->
+  <div id="statusbar">
+    <span id="sb-left">ORACLE OFFICE · 7 agents</span>
+    <span id="sb-time"></span>
+  </div>
+
+  <!-- Agent panel -->
+  <div id="panel">
+    <div id="panel-handle"></div>
+    <div id="panel-head">
+      <div id="panel-icon"></div>
+      <div id="panel-info">
+        <div id="panel-name"></div>
+        <div id="panel-domain"></div>
+      </div>
+      <div id="panel-status">
+        <div id="panel-sdot"></div>
+        <span id="panel-stext"></span>
+      </div>
+      <button id="panel-close">✕</button>
+    </div>
+    <div id="panel-activity" class="activity-bar" style="display:none">
+      <div class="activity-pulse" id="panel-apulse"></div>
+      <span id="panel-atool" style="font-size:12px"></span>
+    </div>
+    <div id="panel-tasks" class="panel-section"></div>
+    <div class="panel-section">
+      <div class="panel-label">Dispatch Task</div>
+      <div id="dispatch-row">
+        <input id="dispatch-input" type="text" placeholder="Task description..."/>
+        <button id="dispatch-btn">▶ Run</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════
+//  ORACLE OFFICE — Multi-Agent Pixel Visualization
+//  Based on pixel-agents architecture (MIT) by pablodelucca
+//  Adapted for Oracle multi-agent system (OpenClaw)
+// ═══════════════════════════════════════════════════════════════
+
+// ── Constants ────────────────────────────────────────────────
+const TILE = 16;
+const COLS = 22, ROWS = 14;
+const ZOOM_MIN = 1.5, ZOOM_MAX = 6, ZOOM_DEFAULT = 2.5;
+const WALK_SPEED = 48;          // px/sec
+const WALK_FRAME_DUR = 0.15;    // sec
+const TYPE_FRAME_DUR = 0.35;    // sec
+const WANDER_MIN = 3, WANDER_MAX = 18;
+const MAX_DT = 0.1;
+const POLL_MS = 8000; // fallback polling (SSE handles real-time)
+
+// ── Oracle Agent Definitions ──────────────────────────────────
+const AGENT_DEFS = [
+  { id:'codeguard',      name:'CodeGuard',      icon:'🛡️', color:'#007AFF', skin:'#f8c8a0', domain:'Static Analysis',   seat:{col:2,  row:4} },
+  { id:'secretswatchdog',name:'SecretsWatchdog',icon:'🔑', color:'#FF9F0A', skin:'#d4a574', domain:'Secrets Scan',      seat:{col:5,  row:4} },
+  { id:'cicdguardian',   name:'CICDGuardian',   icon:'⚙️', color:'#34C759', skin:'#ffe0b0', domain:'GitHub Actions',    seat:{col:8,  row:4} },
+  { id:'infrasentinel',  name:'InfraSentinel',  icon:'🌐', color:'#BF5AF2', skin:'#c8a8e8', domain:'Kubernetes',        seat:{col:13, row:4} },
+  { id:'researcher',     name:'Researcher',     icon:'🔬', color:'#FF453A', skin:'#f0a090', domain:'Web Research',      seat:{col:16, row:4} },
+  { id:'theoryanalyst',  name:'TheoryAnalyst',  icon:'🧬', color:'#FFD60A', skin:'#f0e090', domain:'CyberSocium Theory',seat:{col:19, row:4} },
+  { id:'vulnreporter',   name:'VulnReporter',   icon:'📋', color:'#64D2FF', skin:'#a0d8f0', domain:'Reports & Findings',seat:{col:10, row:9} },
+];
+
+// ── Tile Types ─────────────────────────────────────────────────
+const T = { WALL:0, FLOOR:1, VOID:2 };
+
+// ── Character States ───────────────────────────────────────────
+const CS = { IDLE:'idle', WALK:'walk', TYPE:'type' };
+
+// ── Directions ─────────────────────────────────────────────────
+const DIR = { DOWN:0, LEFT:1, RIGHT:2, UP:3 };
+
+// ─────────────────────────────────────────────────────────────────
+// OFFICE LAYOUT
+// ─────────────────────────────────────────────────────────────────
+class OfficeLayout {
+  constructor() {
+    this.cols = COLS; this.rows = ROWS;
+    this.tiles = new Array(COLS * ROWS).fill(T.FLOOR);
+    this.furniture = [];
+    this._buildLayout();
+  }
+
+  _buildLayout() {
+    // Walls (border)
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      if (r===0 || r===ROWS-1 || c===0 || c===COLS-1) this.tiles[r*COLS+c] = T.WALL;
+    }
+    // Center server room dividers
+    for (let r = 1; r < ROWS-1; r++) {
+      this.tiles[r*COLS+10] = T.WALL;
+      this.tiles[r*COLS+11] = T.WALL;
+    }
+    // Passage through divider
+    for (let r = 6; r <= 8; r++) {
+      this.tiles[r*COLS+10] = T.FLOOR;
+      this.tiles[r*COLS+11] = T.FLOOR;
+    }
+
+    let uid = 0;
+    // Desks & chairs for each agent
+    for (const a of AGENT_DEFS) {
+      this.furniture.push({uid:`desk${uid++}`,type:'desk',col:a.seat.col,row:a.seat.row-1,agentId:null});
+      this.furniture.push({uid:`chair${uid++}`,type:'chair',col:a.seat.col,row:a.seat.row,agentId:a.id});
+    }
+    // Server rack in center divider area (decorative)
+    this.furniture.push({uid:`srv${uid++}`,type:'server',col:10,row:1,agentId:null});
+    // Plants
+    this.furniture.push({uid:`pl${uid++}`,type:'plant',col:1,row:12,agentId:null});
+    this.furniture.push({uid:`pl${uid++}`,type:'plant',col:20,row:12,agentId:null});
+    // Big screen
+    this.furniture.push({uid:`sc${uid++}`,type:'screen',col:12,row:1,agentId:null});
+  }
+
+  getTile(c, r) {
+    if (r<0||r>=ROWS||c<0||c>=COLS) return T.VOID;
+    return this.tiles[r*COLS+c];
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// BFS PATHFINDING (from pixel-agents)
+// ─────────────────────────────────────────────────────────────────
+function findPath(layout, blocked, fc, fr, tc, tr) {
+  if (fc===tc && fr===tr) return [];
+  const key=(c,r)=>`${c},${r}`;
+  const queue=[{c:fc,r:fr,parent:null}];
+  const vis=new Set([key(fc,fr)]);
+  const dirs=[{dc:0,dr:-1},{dc:0,dr:1},{dc:-1,dr:0},{dc:1,dr:0}];
+
+  while (queue.length) {
+    const cur = queue.shift();
+    if (cur.c===tc && cur.r===tr) {
+      const path=[];
+      let n=cur;
+      while (n && (n.c!==fc||n.r!==fr)) { path.unshift({c:n.c,r:n.r}); n=n.parent; }
+      return path;
+    }
+    for (const d of dirs) {
+      const nc=cur.c+d.dc, nr=cur.r+d.dr, k=key(nc,nr);
+      if (vis.has(k)) continue;
+      const isTarget = nc===tc&&nr===tr;
+      const isWalkable = layout.getTile(nc,nr)===T.FLOOR && !blocked.has(k);
+      if (isTarget||isWalkable) { vis.add(k); queue.push({c:nc,r:nr,parent:cur}); }
+    }
+  }
+  return [];
+}
+
+function getWalkable(layout, blocked) {
+  const res=[];
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+    if (layout.getTile(c,r)===T.FLOOR && !blocked.has(`${c},${r}`)) res.push({c,r});
+  }
+  return res;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// CHARACTER ENGINE (adapted from pixel-agents)
+// ─────────────────────────────────────────────────────────────────
+function rnd(a,b){ return a+Math.random()*(b-a); }
+function rndI(a,b){ return Math.floor(rnd(a,b+1)); }
+
+class Character {
+  constructor(id, agentDef, seatCol, seatRow) {
+    this.id = id;
+    this.agentId = agentDef.id;
+    this.def = agentDef;
+    this.state = CS.IDLE;
+    this.dir = DIR.UP;
+    this.x = seatCol*TILE + TILE/2;
+    this.y = seatRow*TILE + TILE/2;
+    this.tileC = seatCol; this.tileR = seatRow;
+    this.seatC = seatCol; this.seatR = seatRow;
+    this.path = [];
+    this.frame = 0; this.frameTimer = 0;
+    this.wanderTimer = rnd(WANDER_MIN, WANDER_MAX);
+    this.wanderCount = 0; this.wanderLimit = rndI(2,5);
+    this.isActive = false;
+    this.currentTool = null;
+    this.bubble = null; // 'waiting'|'running'|null
+    this.bubbleAnim = 0;
+  }
+
+  activate(tool) {
+    this.isActive = true;
+    this.currentTool = tool || null;
+    this.bubble = 'running';
+    if (this.state === CS.IDLE) {
+      this._walkToSeat();
+    }
+  }
+
+  deactivate() {
+    this.isActive = false;
+    this.currentTool = null;
+    this.bubble = null;
+  }
+
+  setWaiting() { this.bubble = 'waiting'; }
+
+  _walkToSeat() {
+    // handled in update
+  }
+
+  update(dt, layout, blocked, walkable) {
+    this.frameTimer += dt;
+    if (this.bubble) this.bubbleAnim = (this.bubbleAnim + dt * 3) % (Math.PI*2);
+
+    switch (this.state) {
+      case CS.TYPE: {
+        if (this.frameTimer >= TYPE_FRAME_DUR) { this.frameTimer -= TYPE_FRAME_DUR; this.frame=(this.frame+1)%2; }
+        if (!this.isActive) {
+          this.state = CS.IDLE;
+          this.frame = 0; this.frameTimer = 0;
+          this.wanderTimer = rnd(WANDER_MIN, WANDER_MAX);
+        }
+        break;
+      }
+      case CS.IDLE: {
+        this.frame = 0;
+        if (this.isActive) {
+          const path = findPath(layout, blocked, this.tileC, this.tileR, this.seatC, this.seatR);
+          if (path.length > 0) {
+            this.path = path; this.state = CS.WALK; this.frame = 0; this.frameTimer = 0;
+          } else {
+            this.state = CS.TYPE; this.dir = DIR.UP; this.frame = 0;
+          }
+          break;
+        }
+        this.wanderTimer -= dt;
+        if (this.wanderTimer <= 0) {
+          if (this.wanderCount >= this.wanderLimit) {
+            // Return to seat
+            const path = findPath(layout, blocked, this.tileC, this.tileR, this.seatC, this.seatR);
+            if (path.length > 0) {
+              this.path = path; this.state = CS.WALK; this.frame = 0; this.frameTimer = 0;
+              this.wanderCount = 0; this.wanderLimit = rndI(2,5); break;
+            }
+          }
+          if (walkable.length > 0) {
+            const t = walkable[Math.floor(Math.random()*walkable.length)];
+            const path = findPath(layout, blocked, this.tileC, this.tileR, t.c, t.r);
+            if (path.length > 0) {
+              this.path = path; this.state = CS.WALK; this.frame = 0; this.frameTimer = 0;
+              this.wanderCount++;
+            }
+          }
+          this.wanderTimer = rnd(WANDER_MIN, WANDER_MAX);
+        }
+        break;
+      }
+      case CS.WALK: {
+        if (this.frameTimer >= WALK_FRAME_DUR) { this.frameTimer -= WALK_FRAME_DUR; this.frame=(this.frame+1)%4; }
+        if (this.path.length === 0) {
+          const cx=this.tileC*TILE+TILE/2, cy=this.tileR*TILE+TILE/2;
+          this.x=cx; this.y=cy;
+          if (this.isActive && this.tileC===this.seatC && this.tileR===this.seatR) {
+            this.state = CS.TYPE; this.dir = DIR.UP;
+          } else {
+            this.state = CS.IDLE;
+            this.wanderTimer = rnd(WANDER_MIN, WANDER_MAX);
+          }
+          break;
+        }
+        const nxt = this.path[0];
+        // Direction
+        const dc=nxt.c-this.tileC, dr=nxt.r-this.tileR;
+        if (dc>0) this.dir=DIR.RIGHT;
+        else if (dc<0) this.dir=DIR.LEFT;
+        else if (dr>0) this.dir=DIR.DOWN;
+        else this.dir=DIR.UP;
+
+        const speed = WALK_SPEED * dt;
+        const tx=nxt.c*TILE+TILE/2, ty=nxt.r*TILE+TILE/2;
+        const dx=tx-this.x, dy=ty-this.y;
+        const dist=Math.sqrt(dx*dx+dy*dy);
+        if (dist<=speed) {
+          this.x=tx; this.y=ty; this.tileC=nxt.c; this.tileR=nxt.r; this.path.shift();
+        } else {
+          const r=speed/dist; this.x+=dx*r; this.y+=dy*r;
+        }
+        break;
+      }
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// OFFICE STATE
+// ─────────────────────────────────────────────────────────────────
+class OfficeState {
+  constructor() {
+    this.layout = new OfficeLayout();
+    this.blocked = new Set();
+    this._buildBlocked();
+    this.walkable = getWalkable(this.layout, this.blocked);
+    this.characters = new Map(); // agentId → Character
+    this._spawnAgents();
+  }
+
+  _buildBlocked() {
+    for (const f of this.layout.furniture) {
+      if (f.type==='desk'||f.type==='server'||f.type==='screen') {
+        this.blocked.add(`${f.col},${f.row}`);
+        this.blocked.add(`${f.col+1},${f.row}`);
+        if (f.type==='screen') this.blocked.add(`${f.col+2},${f.row}`);
+      }
+      if (f.type==='plant') this.blocked.add(`${f.col},${f.row}`);
+    }
+  }
+
+  _spawnAgents() {
+    for (const def of AGENT_DEFS) {
+      const ch = new Character(def.id, def, def.seat.col, def.seat.row);
+      this.characters.set(def.id, ch);
+    }
+  }
+
+  setActive(agentId, active, tool) {
+    const ch = this.characters.get(agentId);
+    if (!ch) return;
+    if (active) ch.activate(tool);
+    else ch.deactivate();
+  }
+
+  update(dt) {
+    for (const ch of this.characters.values()) {
+      ch.update(dt, this.layout, this.blocked, this.walkable);
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// CANVAS RENDERER
+// ─────────────────────────────────────────────────────────────────
+class Renderer {
+  constructor(canvas, state) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.state = state;
+    this.zoom = ZOOM_DEFAULT;
+    this.panX = 0; this.panY = 0;
+    this.selectedId = null;
+    this._resize();
+  }
+
+  _resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = this.canvas.clientWidth || window.innerWidth;
+    const h = this.canvas.clientHeight || window.innerHeight;
+    this.canvas.width = Math.round(w * dpr);
+    this.canvas.height = Math.round(h * dpr);
+    this.W = this.canvas.width;
+    this.H = this.canvas.height;
+  }
+
+  render() {
+    const ctx = this.ctx;
+    const { state, zoom, panX, panY, W, H } = this;
+    const layout = state.layout;
+
+    ctx.imageSmoothingEnabled = false;
+
+    // Clear
+    ctx.fillStyle = '#06060f';
+    ctx.fillRect(0, 0, W, H);
+
+    // Camera transform
+    ctx.save();
+    ctx.translate(W/2 + panX, H/2 + panY);
+    ctx.scale(zoom, zoom);
+    const mapW = COLS*TILE, mapH = ROWS*TILE;
+    ctx.translate(-mapW/2, -mapH/2);
+
+    // ── Floor & Walls ────────────────────────────────────────
+    const t = performance.now() / 1000;
+    for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+      const tile = layout.getTile(c, r);
+      const px=c*TILE, py=r*TILE;
+      if (tile===T.WALL) {
+        ctx.fillStyle = '#14142a';
+        ctx.fillRect(px, py, TILE, TILE);
+        // Top highlight
+        ctx.fillStyle='rgba(100,210,255,0.07)';
+        ctx.fillRect(px, py, TILE, 1);
+        // Subtle left edge
+        ctx.fillStyle='rgba(100,210,255,0.04)';
+        ctx.fillRect(px, py, 1, TILE);
+      } else if (tile===T.FLOOR) {
+        const even=(r+c)%2===0;
+        ctx.fillStyle = even ? '#08081a' : '#0a0a1e';
+        ctx.fillRect(px, py, TILE, TILE);
+        // Grid lines
+        ctx.strokeStyle='rgba(100,210,255,0.035)';
+        ctx.lineWidth=0.5;
+        ctx.strokeRect(px+0.25,py+0.25,TILE-0.5,TILE-0.5);
+      }
+    }
+
+    // ── Furniture ─────────────────────────────────────────────
+    for (const f of layout.furniture) {
+      this._drawFurniture(ctx, f, t);
+    }
+
+    // ── Characters (depth sorted) ─────────────────────────────
+    const chars = [...state.characters.values()].sort((a,b)=>a.y-b.y);
+    for (const ch of chars) this._drawCharacter(ctx, ch, t);
+
+    ctx.restore();
+
+    // ── UI overlays ───────────────────────────────────────────
+    this._updateStatusBar();
+  }
+
+  _drawFurniture(ctx, f, t) {
+    const px=f.col*TILE, py=f.row*TILE;
+    switch (f.type) {
+      case 'desk': {
+        // Desk 2×1
+        ctx.fillStyle='#111830';
+        ctx.fillRect(px, py, TILE*2, TILE);
+        // Highlight top
+        ctx.fillStyle='rgba(100,210,255,0.18)';
+        ctx.fillRect(px, py, TILE*2, 1);
+        // Desk surface texture
+        ctx.fillStyle='#0e1528';
+        ctx.fillRect(px+1, py+2, TILE*2-2, TILE-3);
+        // Mini screen on desk
+        ctx.fillStyle='#001a33';
+        ctx.fillRect(px+4, py+3, 8, 7);
+        ctx.fillStyle='#003366';
+        ctx.fillRect(px+5, py+4, 6, 5);
+        // Screen glow
+        ctx.fillStyle='rgba(0,150,255,0.5)';
+        ctx.fillRect(px+5, py+4, 6, 1);
+        // Cyan accent stripe
+        ctx.fillStyle='rgba(100,210,255,0.4)';
+        ctx.fillRect(px, py, TILE*2, 1);
+        break;
+      }
+      case 'chair': {
+        ctx.fillStyle='#0f2850';
+        ctx.fillRect(px+3, py+2, 10, 11);
+        ctx.fillStyle='#0a1e3a';
+        ctx.fillRect(px+4, py+3, 8, 8);
+        // Chair back highlight
+        ctx.fillStyle='rgba(100,210,255,0.1)';
+        ctx.fillRect(px+3, py+2, 10, 2);
+        break;
+      }
+      case 'server': {
+        // Server rack (tall)
+        ctx.fillStyle='#080818';
+        ctx.fillRect(px, py, TILE, TILE*4);
+        ctx.fillStyle='#050510';
+        ctx.fillRect(px+2, py+2, TILE-4, TILE*4-4);
+        // Blinking lights
+        for (let i=0;i<7;i++) {
+          const on = Math.sin(t*2.5 + i*1.4) > 0;
+          ctx.fillStyle = on ? '#00ff88' : '#003320';
+          ctx.fillRect(px+4, py+4+i*7, 4, 3);
+          const on2 = Math.sin(t*2.5 + i*1.4 + 1.5) > 0;
+          ctx.fillStyle = on2 ? '#ff4455' : '#330011';
+          ctx.fillRect(px+9, py+4+i*7, 4, 3);
+        }
+        // Border
+        ctx.strokeStyle='rgba(100,210,255,0.15)';
+        ctx.lineWidth=0.5;
+        ctx.strokeRect(px,py,TILE,TILE*4);
+        break;
+      }
+      case 'plant': {
+        ctx.fillStyle='#002200';
+        ctx.fillRect(px+5, py+10, 6, 6);
+        ctx.fillStyle='#004400';
+        ctx.beginPath(); ctx.arc(px+8,py+8,5,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#005500';
+        ctx.beginPath(); ctx.arc(px+5,py+10,3.5,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(px+11,py+10,3.5,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#006600';
+        ctx.beginPath(); ctx.arc(px+8,py+5,2.5,0,Math.PI*2); ctx.fill();
+        break;
+      }
+      case 'screen': {
+        // Large wall screen — 3 tiles wide
+        ctx.fillStyle='#04040e';
+        ctx.fillRect(px-TILE, py, TILE*4, TILE*2);
+        // Screen content — matrix rain
+        ctx.fillStyle='rgba(0,0,0,0.6)';
+        ctx.fillRect(px-TILE+2, py+2, TILE*4-4, TILE*2-4);
+        // Matrix text
+        ctx.fillStyle='rgba(0,255,80,0.6)';
+        ctx.font='3px monospace';
+        ctx.textBaseline='top';
+        for (let i=0;i<12;i++) for (let j=0;j<7;j++) {
+          const c=String.fromCharCode(0x30+Math.floor(Math.sin(t*1.5+i*j*0.3)*5+5));
+          const alpha=Math.sin(t+i*0.5)>0?0.8:0.2;
+          ctx.globalAlpha=alpha;
+          ctx.fillText(c, px-TILE+4+i*5, py+3+j*4);
+        }
+        ctx.globalAlpha=1;
+        // Border
+        ctx.strokeStyle='rgba(100,210,255,0.25)';
+        ctx.lineWidth=0.5;
+        ctx.strokeRect(px-TILE, py, TILE*4, TILE*2);
+        // Top glow line
+        ctx.fillStyle='rgba(100,210,255,0.3)';
+        ctx.fillRect(px-TILE, py, TILE*4, 1);
+        break;
+      }
+    }
+  }
+
+  _drawCharacter(ctx, ch, t) {
+    const cx=Math.round(ch.x), cy=Math.round(ch.y);
+    const {color, skin} = ch.def;
+    const isType = ch.state===CS.TYPE;
+    const isWalk = ch.state===CS.WALK;
+    const fr = ch.frame;
+    const sit = isType ? 3 : 0;
+
+    // ── Shadow ────────────────────────────────────────────────
+    ctx.save();
+    ctx.globalAlpha=0.4;
+    ctx.fillStyle='#000';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy+2, 6, 2.5, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+
+    // ── Active glow ───────────────────────────────────────────
+    if (ch.isActive) {
+      const g=ctx.createRadialGradient(cx,cy-7+sit,0,cx,cy-7+sit,10);
+      const pulse=0.2+0.15*Math.sin(t*4+ch.agentId.length);
+      g.addColorStop(0,color+Math.round(pulse*255).toString(16).padStart(2,'0'));
+      g.addColorStop(1,color+'00');
+      ctx.fillStyle=g; ctx.fillRect(cx-10,cy-17,20,20);
+    }
+
+    // ── Legs ──────────────────────────────────────────────────
+    ctx.fillStyle='#1a1a30';
+    if (isWalk) {
+      const swing=Math.sin(fr*Math.PI/2)*2.5;
+      ctx.fillRect(cx-4, cy-1+sit, 3, 5+swing); // left
+      ctx.fillRect(cx+1, cy-1+sit, 3, 5-swing); // right
+    } else if (!isType) {
+      ctx.fillRect(cx-4, cy-1, 3, 5);
+      ctx.fillRect(cx+1, cy-1, 3, 5);
+    } else {
+      // Sitting
+      ctx.fillRect(cx-5, cy+1+sit, 10, 3);
+    }
+
+    // ── Body / Torso ──────────────────────────────────────────
+    ctx.fillStyle=color;
+    ctx.fillRect(cx-5, cy-9+sit, 10, 8);
+    // Body shading sides
+    ctx.fillStyle='rgba(0,0,0,0.3)';
+    ctx.fillRect(cx-5, cy-9+sit, 2, 8);
+    ctx.fillRect(cx+3, cy-9+sit, 2, 8);
+    // Collar / logo stripe
+    ctx.fillStyle='rgba(255,255,255,0.25)';
+    ctx.fillRect(cx-2, cy-8+sit, 4, 1);
+    // Bottom trim
+    ctx.fillStyle='rgba(0,0,0,0.2)';
+    ctx.fillRect(cx-5, cy-2+sit, 10, 1);
+
+    // Typing hands
+    if (isType) {
+      const h=fr%2===0?1:-1;
+      ctx.fillStyle=skin;
+      ctx.fillRect(cx-7, cy-4+h, 3, 2);
+      ctx.fillRect(cx+4, cy-4-h, 3, 2);
+    }
+
+    // ── Head ──────────────────────────────────────────────────
+    ctx.fillStyle=skin;
+    ctx.fillRect(cx-4, cy-16+sit, 8, 7);
+    // Eyes
+    const eyeY=cy-14+sit;
+    ctx.fillStyle='#1a1a3a';
+    ctx.fillRect(cx-2, eyeY, 2, 2);
+    ctx.fillRect(cx+1, eyeY, 2, 2);
+    if (ch.isActive) {
+      // Glowing eyes
+      ctx.fillStyle=color;
+      ctx.fillRect(cx-2, eyeY, 1, 1);
+      ctx.fillRect(cx+1, eyeY, 1, 1);
+    }
+    // Hair (color-coded)
+    ctx.fillStyle=color+'cc';
+    ctx.fillRect(cx-4, cy-16+sit, 8, 2);
+
+    // ── Status dot ────────────────────────────────────────────
+    const dotY=cy-19+sit;
+    const dotC=ch.isActive?color:ch.state===CS.WALK?'#FFD60A':'#333';
+    ctx.fillStyle=dotC;
+    ctx.beginPath(); ctx.arc(cx,dotY,2,0,Math.PI*2); ctx.fill();
+    if (ch.isActive) {
+      const r=2.5+Math.sin(t*5)*0.8;
+      ctx.globalAlpha=0.4; ctx.fillStyle=dotC;
+      ctx.beginPath(); ctx.arc(cx,dotY,r,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha=1;
+    }
+
+    // ── Emoji icon ────────────────────────────────────────────
+    if (this.zoom >= 2) {
+      ctx.save();
+      const s=1/this.zoom;
+      ctx.scale(s,s);
+      ctx.font=`${Math.max(9,this.zoom*6)}px serif`;
+      ctx.textAlign='center'; ctx.textBaseline='bottom';
+      ctx.fillText(ch.def.icon, cx*this.zoom, (cy-20+sit)*this.zoom);
+      ctx.restore();
+    }
+
+    // ── Speech bubble ─────────────────────────────────────────
+    if (ch.bubble) {
+      const bx=cx+9, by=cy-18+sit;
+      const bc=ch.bubble==='waiting'?'#FF9F0A':color;
+      ctx.fillStyle=bc;
+      ctx.fillRect(bx, by-5, 14, 8);
+      ctx.fillStyle='#fff';
+      ctx.font='3.5px monospace';
+      ctx.textAlign='left'; ctx.textBaseline='middle';
+      ctx.fillText(ch.bubble==='waiting'?'...':(ch.currentTool||'▶'), bx+2, by-1);
+      // Triangle
+      ctx.fillStyle=bc;
+      ctx.beginPath();
+      ctx.moveTo(bx,by-1); ctx.lineTo(bx-4,by+1); ctx.lineTo(bx,by+3);
+      ctx.fill();
+    }
+
+    // ── Name label (high zoom) ────────────────────────────────
+    if (this.zoom >= 3.5) {
+      ctx.save();
+      const s=1/this.zoom;
+      ctx.scale(s,s);
+      const nm=ch.def.name;
+      const fs=Math.max(9,this.zoom*3.5);
+      ctx.font=`600 ${fs}px -apple-system,system-ui`;
+      ctx.textAlign='center'; ctx.textBaseline='top';
+      const tw=ctx.measureText(nm).width;
+      ctx.fillStyle='rgba(8,8,22,0.85)';
+      ctx.fillRect(cx*this.zoom-tw/2-3,(cy+8)*this.zoom-1,tw+6,fs+3);
+      ctx.fillStyle=color;
+      ctx.fillText(nm, cx*this.zoom, (cy+8)*this.zoom);
+      ctx.restore();
+    }
+
+    // ── Selected ring ─────────────────────────────────────────
+    if (this.selectedId===ch.agentId) {
+      ctx.strokeStyle=color; ctx.lineWidth=1;
+      ctx.setLineDash([2,2]);
+      ctx.strokeRect(cx-7, cy-20+sit, 14, 23);
+      ctx.setLineDash([]);
+    }
+  }
+
+  _updateStatusBar() {
+    let active=0;
+    for (const ch of this.state.characters.values()) if(ch.isActive) active++;
+    const total=this.state.characters.size;
+    document.getElementById('sb-left').textContent =
+      `ORACLE OFFICE · ${total} agents · ${active} active`;
+    document.getElementById('sb-time').textContent =
+      new Date().toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ORACLE API
+// ─────────────────────────────────────────────────────────────────
+const API_BASE = (() => {
+  if (location.hostname==='localhost'||location.hostname==='127.0.0.1') return 'http://localhost:3000/oracle-api';
+  return '/oracle-api';
+})();
+
+async function apiFetch(path) {
+  try {
+    const r = await fetch(API_BASE+path, {signal: AbortSignal.timeout(4000)});
+    if (!r.ok) throw new Error(r.status);
+    return await r.json();
+  } catch { return null; }
+}
+
+async function apiPost(path, body) {
+  try {
+    await fetch(API_BASE+path, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body), signal:AbortSignal.timeout(8000)
+    });
+    return true;
+  } catch { return false; }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// APP
+// ─────────────────────────────────────────────────────────────────
+class OracleOfficeApp {
+  constructor() {
+    this.state = new OfficeState();
+    this.renderer = new Renderer(document.getElementById('canvas'), this.state);
+    this.zoom = ZOOM_DEFAULT;
+    this.panX = 0; this.panY = 0;
+    this.agents = [];
+    this.tasks = [];
+    this.connected = false;
+    this.selectedId = null;
+    this.lastTime = 0;
+    this._panStart = null;
+    this._pinchDist = null;
+    this._pointers = new Map();
+
+    this._initTelegram();
+    this._initUI();
+    this._initEvents();
+    this._startLoop();
+    this._poll();
+    setInterval(() => this._poll(), POLL_MS);
+    this._initSSE();
+    this._initBridge();
+  }
+
+  // ── SSE Real-time connection ──────────────────────────────────────
+  _initSSE() {
+    let backoff = 1000;
+    const connect = () => {
+      try {
+        const es = new EventSource(`${API_BASE}/api/events`);
+        es.onopen = () => { backoff = 1000; };
+        es.onmessage = (e) => {
+          try { this._handleSSE(JSON.parse(e.data)); } catch {}
+        };
+        es.onerror = () => {
+          es.close();
+          setTimeout(connect, Math.min(backoff, 30000));
+          backoff = Math.min(backoff * 1.5, 30000);
+        };
+      } catch {}
+    };
+    connect();
+  }
+
+  _handleSSE(msg) {
+    switch (msg.type) {
+      case 'agent:active': {
+        // Try to find agent by runId or task
+        const task = (msg.task || '').toLowerCase();
+        for (const def of AGENT_DEFS) {
+          if (task.includes(def.id) || task.includes(def.name.toLowerCase())) {
+            this.state.setActive(def.id, true, msg.task?.slice(0, 30));
+          }
+        }
+        break;
+      }
+      case 'agent:idle': {
+        if (msg.agentId) {
+          this.state.setActive(msg.agentId, false);
+        }
+        break;
+      }
+      case 'task:dispatched': {
+        // Activate specific agents in the group
+        if (msg.agentId) {
+          this.state.setActive(msg.agentId, true, (msg.task||'').slice(0,30));
+        }
+        break;
+      }
+    }
+  }
+
+  // ── postMessage bridge with parent miniapp ────────────────────────
+  _initBridge() {
+    window.addEventListener('message', (e) => {
+      if (e.data?.source !== 'oracle-miniapp') return;
+      const msg = e.data;
+      switch (msg.type) {
+        case 'agent:active': {
+          const task = (msg.task || '').toLowerCase();
+          for (const def of AGENT_DEFS) {
+            if (task.includes(def.id) || task.includes(def.name.toLowerCase())) {
+              this.state.setActive(def.id, true, msg.task?.slice(0,30));
+            }
+          }
+          break;
+        }
+        case 'agent:idle': {
+          if (msg.agentId) this.state.setActive(msg.agentId, false);
+          break;
+        }
+        case 'task:dispatched': {
+          if (msg.agentId) this.state.setActive(msg.agentId, true, (msg.task||'').slice(0,30));
+          break;
+        }
+      }
+    });
+  }
+
+  _initTelegram() {
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.expand();
+      try { tg.setHeaderColor('#080810'); tg.setBackgroundColor('#080810'); } catch {}
+    }
+  }
+
+  _initUI() {
+    // Legend chips
+    const legend = document.getElementById('legend');
+    for (const a of AGENT_DEFS) {
+      const chip = document.createElement('div');
+      chip.className='legend-chip';
+      chip.id=`chip-${a.id}`;
+      chip.style.borderColor=a.color+'33';
+      chip.style.color='rgba(255,255,255,0.4)';
+      chip.innerHTML=`<span>${a.icon}</span><span>${a.name}</span><div class="legend-dot" id="ldot-${a.id}" style="background:#333"></div>`;
+      chip.addEventListener('click', ()=>this._selectAgent(a.id));
+      legend.appendChild(chip);
+    }
+
+    // Panel close
+    document.getElementById('panel-close').addEventListener('click',()=>this._closePanel());
+
+    // Zoom buttons
+    document.getElementById('zoom-in').addEventListener('click',()=>this._setZoom(Math.min(ZOOM_MAX,this.zoom+0.5)));
+    document.getElementById('zoom-out').addEventListener('click',()=>this._setZoom(Math.max(ZOOM_MIN,this.zoom-0.5)));
+
+    // Dispatch
+    const dinput = document.getElementById('dispatch-input');
+    const dbtn = document.getElementById('dispatch-btn');
+    dinput.addEventListener('input',()=>this._updateDispatchBtn());
+    dinput.addEventListener('keydown',e=>{ if(e.key==='Enter') this._dispatch(); });
+    dbtn.addEventListener('click',()=>this._dispatch());
+    this._updateDispatchBtn();
+  }
+
+  _initEvents() {
+    const canvas = document.getElementById('canvas');
+    // Resize
+    const ro = new ResizeObserver(()=>{ this.renderer._resize(); });
+    ro.observe(canvas);
+
+    // Mouse
+    canvas.addEventListener('mousedown', e=>this._onPointerDown(e.clientX,e.clientY,e.button));
+    canvas.addEventListener('mousemove', e=>this._onPointerMove(e.clientX,e.clientY));
+    canvas.addEventListener('mouseup',   e=>this._onPointerUp(e.clientX,e.clientY,true));
+    canvas.addEventListener('mouseleave',()=>{ this._panStart=null; });
+
+    // Wheel
+    canvas.addEventListener('wheel', e=>{ e.preventDefault(); this._onWheel(e.deltaY); },{passive:false});
+
+    // Touch
+    canvas.addEventListener('touchstart', e=>{ e.preventDefault(); this._onTouchStart(e); },{passive:false});
+    canvas.addEventListener('touchmove',  e=>{ e.preventDefault(); this._onTouchMove(e);  },{passive:false});
+    canvas.addEventListener('touchend',   e=>{ e.preventDefault(); this._onTouchEnd(e);   },{passive:false});
+    canvas.addEventListener('touchcancel',e=>{ this._panStart=null; this._pinchDist=null; this._pointers.clear(); });
+  }
+
+  _onPointerDown(x,y,btn) {
+    if (btn===0||btn===1) this._panStart={x,y,px:this.panX,py:this.panY};
+  }
+
+  _onPointerMove(x,y) {
+    if (!this._panStart) return;
+    const dx=x-this._panStart.x, dy=y-this._panStart.y;
+    const [cx,cy]=this._clampPan(this._panStart.px+dx, this._panStart.py+dy);
+    this.panX=cx; this.panY=cy;
+  }
+
+  _onPointerUp(x,y,checkHit) {
+    const wasPanning = this._panStart && (Math.abs(x-this._panStart.x)+Math.abs(y-this._panStart.y)>5);
+    this._panStart=null;
+    if (checkHit && !wasPanning) this._hitTest(x,y);
+  }
+
+  _onWheel(deltaY) {
+    const dir=deltaY>0?-1:1;
+    this._setZoom(Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, this.zoom+dir*0.3)));
+  }
+
+  _onTouchStart(e) {
+    for (const t of e.changedTouches) this._pointers.set(t.identifier,{x:t.clientX,y:t.clientY});
+    if (this._pointers.size===2) {
+      const pts=[...this._pointers.values()];
+      const dx=pts[0].x-pts[1].x, dy=pts[0].y-pts[1].y;
+      this._pinchDist=Math.sqrt(dx*dx+dy*dy);
+      this._panStart=null;
+    } else if (this._pointers.size===1) {
+      const t=e.touches[0];
+      this._panStart={x:t.clientX,y:t.clientY,px:this.panX,py:this.panY};
+    }
+  }
+
+  _onTouchMove(e) {
+    for (const t of e.changedTouches) this._pointers.set(t.identifier,{x:t.clientX,y:t.clientY});
+    if (this._pointers.size===2 && this._pinchDist!=null) {
+      const pts=[...this._pointers.values()];
+      const dx=pts[0].x-pts[1].x, dy=pts[0].y-pts[1].y;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      const ratio=dist/this._pinchDist;
+      this._pinchDist=dist;
+      this._setZoom(Math.max(ZOOM_MIN,Math.min(ZOOM_MAX,this.zoom*ratio)));
+    } else if (this._pointers.size===1 && this._panStart) {
+      const t=e.touches[0];
+      const dx=t.clientX-this._panStart.x, dy=t.clientY-this._panStart.y;
+      const [cx,cy]=this._clampPan(this._panStart.px+dx,this._panStart.py+dy);
+      this.panX=cx; this.panY=cy;
+    }
+  }
+
+  _onTouchEnd(e) {
+    const wasPinch = this._pinchDist!=null;
+    for (const t of e.changedTouches) this._pointers.delete(t.identifier);
+    if (this._pointers.size<2) this._pinchDist=null;
+    if (this._pointers.size===0) {
+      if (!wasPinch && this._panStart) {
+        const t=e.changedTouches[0];
+        const dx=Math.abs(t.clientX-this._panStart.x)+Math.abs(t.clientY-this._panStart.y);
+        if (dx<8) this._hitTest(t.clientX, t.clientY);
+      }
+      this._panStart=null;
+    }
+  }
+
+  _clampPan(px,py) {
+    const c=this.renderer.canvas;
+    const mapW=COLS*TILE*this.zoom, mapH=ROWS*TILE*this.zoom;
+    const mx=mapW/2+c.width/2*0.75, my=mapH/2+c.height/2*0.75;
+    return [Math.max(-mx,Math.min(mx,px)), Math.max(-my,Math.min(my,py))];
+  }
+
+  _setZoom(z) {
+    this.zoom=z;
+    this.renderer.zoom=z;
+    document.getElementById('zoom-val').textContent=z.toFixed(1)+'×';
+    const [cx,cy]=this._clampPan(this.panX,this.panY);
+    this.panX=cx; this.panY=cy;
+  }
+
+  _hitTest(clientX, clientY) {
+    const canvas=this.renderer.canvas;
+    const rect=canvas.getBoundingClientRect();
+    const dpr=window.devicePixelRatio||1;
+    const sx=(clientX-rect.left)*dpr, sy=(clientY-rect.top)*dpr;
+    const z=this.zoom;
+    const mapW=COLS*TILE, mapH=ROWS*TILE;
+    const ox=canvas.width/2+this.panX-mapW*z/2;
+    const oy=canvas.height/2+this.panY-mapH*z/2;
+
+    let best=null, bestDist=14*dpr;
+    for (const ch of this.state.characters.values()) {
+      const cx=ox+ch.x*z, cy=oy+ch.y*z;
+      const d=Math.sqrt((sx-cx)**2+(sy-cy)**2);
+      if (d<bestDist) { bestDist=d; best=ch.agentId; }
+    }
+    if (best) {
+      this._selectAgent(best);
+      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred('light');
+    } else if (this.selectedId) {
+      this._closePanel();
+    }
+  }
+
+  _selectAgent(agentId) {
+    this.selectedId=agentId;
+    this.renderer.selectedId=agentId;
+    const def=AGENT_DEFS.find(a=>a.id===agentId);
+    const agentData=this.agents.find(a=>a.id===agentId)||{id:agentId,status:'idle'};
+    if (!def) return;
+    this._showPanel(def, agentData);
+    // Notify parent miniapp
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ source:'oracle-office', type:'agent:selected', agentId }, '*');
+    }
+  }
+
+  _showPanel(def, agentData) {
+    const color=def.color;
+    document.getElementById('panel').style.boxShadow=`0 -12px 48px ${color}22`;
+    document.getElementById('panel').style.borderTopColor=color+'44';
+    document.getElementById('panel-icon').style.background=color+'22';
+    document.getElementById('panel-icon').style.border=`1px solid ${color}44`;
+    document.getElementById('panel-icon').textContent=def.icon;
+    document.getElementById('panel-name').textContent=def.name;
+    document.getElementById('panel-domain').textContent=def.domain;
+
+    const status=agentData.status||'idle';
+    const statusColor=status==='active'||status==='running'?'#34C759':status==='waiting'?'#FF9F0A':'#555';
+    document.getElementById('panel-sdot').style.background=statusColor;
+    document.getElementById('panel-sdot').style.boxShadow=status!=='idle'?`0 0 8px ${statusColor}`:'none';
+    document.getElementById('panel-stext').style.color=statusColor;
+    document.getElementById('panel-stext').textContent=status.toUpperCase();
+
+    // Activity
+    const actBar=document.getElementById('panel-activity');
+    if (agentData.currentTool) {
+      actBar.style.display='flex';
+      actBar.style.background=color+'15';
+      actBar.style.border=`1px solid ${color}33`;
+      document.getElementById('panel-apulse').style.background=color;
+      document.getElementById('panel-apulse').style.boxShadow=`0 0 6px ${color}`;
+      document.getElementById('panel-atool').style.color=color;
+      document.getElementById('panel-atool').textContent=agentData.currentTool;
+    } else {
+      actBar.style.display='none';
+    }
+
+    // Tasks
+    const agentTasks=this.tasks.filter(t=>t.agentId===agentData.id);
+    const tasksDiv=document.getElementById('panel-tasks');
+    if (agentTasks.length) {
+      tasksDiv.innerHTML=`<div class="panel-label">Active Tasks (${agentTasks.length})</div>`+
+        agentTasks.map(t=>`<div class="task-item"><div class="task-dot" style="background:${t.status==='running'?color:'#444'}"></div><div class="task-text">${t.description||t.task||t.id}</div></div>`).join('');
+    } else {
+      tasksDiv.innerHTML='';
+    }
+
+    // Dispatch placeholder
+    document.getElementById('dispatch-input').placeholder=`Task for ${def.name}...`;
+    document.getElementById('dispatch-btn').style.background=color;
+    document.getElementById('dispatch-btn').style.color='#000';
+
+    document.getElementById('panel').classList.add('open');
+  }
+
+  _closePanel() {
+    this.selectedId=null;
+    this.renderer.selectedId=null;
+    document.getElementById('panel').classList.remove('open');
+  }
+
+  _updateDispatchBtn() {
+    const v=document.getElementById('dispatch-input').value.trim();
+    const btn=document.getElementById('dispatch-btn');
+    if (!this.selectedId) { btn.style.background='rgba(255,255,255,0.08)'; btn.style.color='#555'; return; }
+    const color=AGENT_DEFS.find(a=>a.id===this.selectedId)?.color||'#64D2FF';
+    btn.style.background=v?color:'rgba(255,255,255,0.08)';
+    btn.style.color=v?'#000':'#555';
+  }
+
+  async _dispatch() {
+    const val=document.getElementById('dispatch-input').value.trim();
+    if (!val||!this.selectedId) return;
+    const ok=await apiPost('/api/tasks',{agentId:this.selectedId,task:val});
+    if (ok) {
+      document.getElementById('dispatch-input').value='';
+      this._updateDispatchBtn();
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+      this.state.setActive(this.selectedId,true,val.slice(0,20));
+    }
+  }
+
+  async _poll() {
+    const [agents, tasks] = await Promise.all([
+      apiFetch('/api/agents'),
+      apiFetch('/api/tasks'),
+    ]);
+
+    if (agents || tasks) {
+      this.connected=true;
+      document.getElementById('conn-dot').style.background='#34C759';
+      document.getElementById('conn-dot').style.boxShadow='0 0 6px #34C759';
+      document.getElementById('conn-label').textContent='LIVE';
+      document.getElementById('conn-label').style.color='#34C759';
+    } else {
+      this.connected=false;
+      document.getElementById('conn-dot').style.background='#FF9F0A';
+      document.getElementById('conn-label').textContent='MOCK';
+    }
+
+    if (agents) {
+      this.agents=this._normalizeAgents(agents);
+      this._updateLegend();
+      this._updateCharacterStates();
+    }
+    if (tasks) {
+      this.tasks=this._normalizeTasks(tasks);
+    }
+  }
+
+  _normalizeAgents(data) {
+    if (Array.isArray(data)) return data;
+    if (data && typeof data.agents==='object' && !Array.isArray(data.agents)) {
+      return Object.values(data.agents);
+    }
+    if (data && Array.isArray(data.agents)) return data.agents;
+    return [];
+  }
+
+  _normalizeTasks(data) {
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.tasks)) return data.tasks;
+    return [];
+  }
+
+  _updateLegend() {
+    for (const agent of this.agents) {
+      const id=agent.id||agent.agentId;
+      if (!id) continue;
+      const chip=document.getElementById(`chip-${id}`);
+      const dot=document.getElementById(`ldot-${id}`);
+      const def=AGENT_DEFS.find(a=>a.id===id);
+      if (!chip||!def) continue;
+      const isActive=agent.status==='active'||agent.status==='running';
+      chip.style.borderColor=isActive?def.color+'88':def.color+'22';
+      chip.style.color=isActive?def.color:'rgba(255,255,255,0.35)';
+      dot.style.background=isActive?def.color:'#333';
+      dot.style.boxShadow=isActive?`0 0 5px ${def.color}`:'none';
+    }
+  }
+
+  _updateCharacterStates() {
+    for (const agent of this.agents) {
+      const id=agent.id||agent.agentId;
+      if (!id) continue;
+      const isActive=agent.status==='active'||agent.status==='running';
+      this.state.setActive(id, isActive, agent.currentTool||null);
+      if (agent.status==='waiting') {
+        this.state.characters.get(id)?.setWaiting();
+      }
+    }
+  }
+
+  _startLoop() {
+    const loop = (ts) => {
+      const dt=this.lastTime===0?0:Math.min((ts-this.lastTime)/1000, MAX_DT);
+      this.lastTime=ts;
+      this.state.update(dt);
+      this.renderer.panX=this.panX;
+      this.renderer.panY=this.panY;
+      this.renderer.render();
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// BOOT
+// ─────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  window._oracleApp = new OracleOfficeApp();
+});
+</script>
+</body>
+</html>
