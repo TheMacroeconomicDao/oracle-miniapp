@@ -23,34 +23,37 @@
     }
 
     :root {
-      --bg:         #080810;
-      --bg-card:    rgba(255,255,255,0.035);
-      --bg-card-hi: rgba(255,255,255,0.065);
+      --bg:         #080812;
+      --bg2:        #0d0d1f;
+      --bg-card:    rgba(255,255,255,0.05);
+      --bg-card-hi: rgba(255,255,255,0.08);
       --bg-input:   rgba(255,255,255,0.07);
-      --bg-modal:   #0D0D1C;
-      --border:     rgba(255,255,255,0.07);
-      --bfocus:     rgba(0,122,255,0.55);
+      --bg-modal:   #0d0d1f;
+      --border:     rgba(255,255,255,0.08);
+      --bfocus:     rgba(79,142,247,0.55);
 
-      --t1: #FFFFFF;
-      --t2: rgba(255,255,255,0.55);
-      --t3: rgba(255,255,255,0.27);
+      --t1: rgba(255,255,255,0.95);
+      --t2: rgba(255,255,255,0.6);
+      --t3: rgba(255,255,255,0.35);
 
-      --blue:   #007AFF;
-      --green:  #34C759;
-      --purple: #BF5AF2;
-      --orange: #FF9F0A;
-      --red:    #FF453A;
-      --cyan:   #64D2FF;
-      --yellow: #FFD60A;
+      --accent:  #4f8ef7;
+      --accent2: #7c5cfc;
+      --blue:    #4f8ef7;
+      --green:   #22c55e;
+      --purple:  #7c5cfc;
+      --orange:  #f97316;
+      --red:     #ef4444;
+      --cyan:    #64D2FF;
+      --yellow:  #FFD60A;
 
-      --glow-b: 0 0 20px rgba(0,122,255,0.45),   0 0 40px rgba(0,122,255,0.2);
-      --glow-g: 0 0 20px rgba(52,199,89,0.45),   0 0 40px rgba(52,199,89,0.2);
-      --glow-p: 0 0 20px rgba(191,90,242,0.45),  0 0 40px rgba(191,90,242,0.2);
+      --glow-b: 0 0 20px rgba(79,142,247,0.45),  0 0 40px rgba(79,142,247,0.2);
+      --glow-g: 0 0 20px rgba(34,197,94,0.45),   0 0 40px rgba(34,197,94,0.2);
+      --glow-p: 0 0 20px rgba(124,92,252,0.45),  0 0 40px rgba(124,92,252,0.2);
       --glow-c: 0 0 20px rgba(100,210,255,0.45), 0 0 40px rgba(100,210,255,0.2);
 
       --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 22px;
       --sp: 16px; --sp-sm: 8px; --sp-lg: 24px;
-      --nav-h: 82px;
+      --nav-h: calc(68px + env(safe-area-inset-bottom, 0px));
       --t-fast: 150ms ease;
       --t-mid:  220ms ease;
       --t-spring: 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -149,7 +152,9 @@
       transition: all var(--t-mid);
     }
 
-    .nav-icon  { font-size: 22px; line-height: 1; transition: transform var(--t-spring); }
+    .nav-icon  { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; transition: transform var(--t-spring); }
+    .nav-icon svg { width: 20px; height: 20px; stroke: var(--t3); transition: stroke var(--t-mid); }
+    .nav-item.active .nav-icon svg { stroke: var(--blue); }
     .nav-label { font-size: 10px; font-weight: 500; color: var(--t3); transition: color var(--t-mid); letter-spacing: 0.02em; }
     .nav-dot   {
       position: absolute; bottom: 2px;
@@ -602,7 +607,7 @@
 
   <!-- ======== LOADING ======== -->
   <div id="loading">
-    <div class="load-logo">🔬</div>
+    <div class="load-logo"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#4f8ef7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v6l-2 2v2h16v-2l-2-2V2"/><path d="M6 2h12"/><path d="M10 14v7"/><path d="M14 14v7"/><path d="M8 21h8"/></svg></div>
     <div class="load-title">Oracle</div>
     <div class="load-sub">Command Center · Gybernaty R&D</div>
     <div class="load-bar"><div class="load-fill" id="load-fill"></div></div>
@@ -612,7 +617,7 @@
   <div class="screen active" id="screen-graph">
     <div class="screen-header">
       <div>
-        <div class="screen-title">🌐 База знаний</div>
+        <div class="screen-title">База знаний</div>
         <div class="screen-sub">Граф связей · 17 узлов · 21 связь</div>
       </div>
       <button class="btn btn-ghost btn-sm" id="graph-reset">Сброс</button>
@@ -645,7 +650,7 @@
   <div class="screen" id="screen-agents">
     <div class="screen-header">
       <div>
-        <div class="screen-title">🤖 Агенты</div>
+        <div class="screen-title">Агенты</div>
         <div class="screen-sub" id="agents-sub">2 группы · 5 агентов</div>
       </div>
     </div>
@@ -668,7 +673,7 @@
   <div class="screen" id="screen-monitor">
     <div class="screen-header">
       <div>
-        <div class="screen-title">📊 Монитор</div>
+        <div class="screen-title">Монитор</div>
         <div class="screen-sub" id="monitor-updated-sub">Обновлено только что</div>
       </div>
       <span class="badge b-ok"><span class="bdot"></span>Live</span>
@@ -771,7 +776,7 @@
   <div class="screen" id="screen-tasks">
     <div class="screen-header">
       <div>
-        <div class="screen-title">🎯 Задачи</div>
+        <div class="screen-title">Задачи</div>
         <div class="screen-sub">Оркестрация агентов</div>
       </div>
     </div>
@@ -781,7 +786,7 @@
         <div class="hero-icon">🚀</div>
         <div class="hero-title">Запустить команду</div>
         <div class="hero-desc">Выберите группу агентов и поставьте задачу — Oracle оркестрирует параллельное выполнение.</div>
-        <button class="btn btn-primary" id="btn-launch" style="width:100%;font-size:15px">⚡ Запустить группу</button>
+        <button class="btn btn-primary" id="btn-launch" style="width:100%;font-size:15px">Запустить группу</button>
       </div>
 
       <div class="section">
@@ -806,27 +811,27 @@
   <!-- ======== BOTTOM NAV ======== -->
   <nav id="bottom-nav">
     <div class="nav-item active" data-s="graph">
-      <div class="nav-icon">🌐</div>
+      <div class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
       <div class="nav-label">Граф</div>
       <div class="nav-dot"></div>
     </div>
     <div class="nav-item" data-s="agents">
-      <div class="nav-icon">🤖</div>
+      <div class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2M9 2v2M2 15h2M2 9h2M15 22v-2M9 22v-2M22 15h-2M22 9h-2"/></svg></div>
       <div class="nav-label">Агенты</div>
       <div class="nav-dot"></div>
     </div>
     <div class="nav-item" data-s="monitor">
-      <div class="nav-icon">📊</div>
+      <div class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg></div>
       <div class="nav-label">Монитор</div>
       <div class="nav-dot"></div>
     </div>
     <div class="nav-item" data-s="tasks">
-      <div class="nav-icon">🎯</div>
+      <div class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
       <div class="nav-label">Задачи</div>
       <div class="nav-dot"></div>
     </div>
     <div class="nav-item" data-s="office">
-      <div class="nav-icon">🏢</div>
+      <div class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></div>
       <div class="nav-label">Офис</div>
       <div class="nav-dot"></div>
     </div>
@@ -870,7 +875,7 @@
       </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" id="cancel-launch">Отмена</button>
-        <button class="btn btn-primary" id="run-task">⚡ Запустить</button>
+        <button class="btn btn-primary" id="run-task">Запустить</button>
       </div>
     </div>
 
@@ -907,6 +912,20 @@ if (tg) {
   tg.expand();
   tg.setHeaderColor?.('#080810');
   tg.setBackgroundColor?.('#080810');
+  // BackButton: закрывает модал/панель вместо всего app
+  tg.BackButton?.onClick(() => {
+    const overlay = document.getElementById('modal-overlay');
+    const nodePanel = document.getElementById('node-panel');
+    if (overlay?.classList.contains('open')) {
+      closeModal?.();
+      tg.BackButton.hide();
+    } else if (nodePanel?.classList.contains('open')) {
+      nodePanel.classList.remove('open');
+      tg.BackButton.hide();
+    } else {
+      tg.BackButton.hide();
+    }
+  });
 }
 const haptic = {
   light:   () => tg?.HapticFeedback?.impactOccurred('light'),
@@ -1322,6 +1341,11 @@ let selectedAgents = new Set();
 // ================================================================
 
 function navigate(id) {
+  // Очищаем office timer при уходе с экрана офиса
+  if (curScreen === 'office' && id !== 'office') {
+    clearInterval(officeConnTimer);
+    officeConnTimer = null;
+  }
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById(`screen-${id}`)?.classList.add('active');
@@ -1345,10 +1369,13 @@ function openModal(id) {
   document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
   document.getElementById(id).style.display = 'block';
   document.getElementById('modal-overlay').classList.add('open');
+  tg?.BackButton?.show(); // показываем кнопку "Назад" в Telegram
+  haptic.light();
 }
 
 function closeModal() {
   document.getElementById('modal-overlay').classList.remove('open');
+  tg?.BackButton?.hide();
 }
 
 document.getElementById('modal-overlay').addEventListener('click', e => {
@@ -1574,7 +1601,7 @@ function renderGroups() {
         <div class="avatars">${avs}${extra}</div>
         <div style="font-size:12px;color:var(--t3);margin-bottom:12px">Последнее: ${g.lastTask}</div>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-primary btn-sm" style="flex:1" onclick="event.stopPropagation();openLaunchForGroup('${g.id}')">⚡ Запустить</button>
+          <button class="btn btn-primary btn-sm" style="flex:1" onclick="event.stopPropagation();openLaunchForGroup('${g.id}')">Запустить</button>
           <button class="btn btn-ghost btn-sm btn-icon" onclick="event.stopPropagation()">⋯</button>
         </div>
       </div>
@@ -1811,23 +1838,30 @@ document.getElementById('run-task').addEventListener('click', async () => {
     if(a) a.status = 'running';
   });
 
-  closeModal();
-  document.getElementById('task-desc').value = '';
-  navigate('tasks');
-  renderTasks();
-  renderMonitor();
-  renderAgents();
-  haptic.success();
+  // Отправляем задачу на API — прогресс ТОЛЬКО при успехе
+  const btn = document.getElementById('run-task');
+  btn.disabled = true;
+  btn.textContent = 'Запуск...';
 
-  // Отправляем задачу на API (fire and forget)
   try {
     await triggerTask(gid, desc);
+    haptic.success();
+    closeModal();
+    document.getElementById('task-desc').value = '';
+    navigate('tasks');
+    renderTasks();
+    renderMonitor();
+    renderAgents();
+    simulateProgress(newTask, g);
   } catch(e) {
-    console.warn('triggerTask API error (продолжаем локально):', e);
+    haptic.error();
+    showToast('Ошибка запуска', 'Не удалось отправить задачу на сервер', 'error');
+    // Убираем задачу из списка при ошибке
+    APP.tasks = APP.tasks.filter(t => t.id !== newTask.id);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Запустить';
   }
-
-  // Simulate progress locally
-  simulateProgress(newTask, g);
 });
 
 function simulateProgress(task, group) {
