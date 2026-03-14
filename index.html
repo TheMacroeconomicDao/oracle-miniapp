@@ -792,27 +792,15 @@
   </div>
 
   <!-- ======== SCREEN: OFFICE ======== -->
-  <div class="screen" id="screen-office">
-    <div class="screen-header" style="padding:10px 16px;">
-      <div>
-        <div class="screen-title">🏢 Oracle Office</div>
-        <div class="screen-sub">Пиксельная визуализация агентов · Live</div>
-      </div>
-      <div id="office-conn" style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t3)">
-        <div id="office-conn-dot" style="width:7px;height:7px;border-radius:50%;background:#333;transition:all 0.4s"></div>
-        <span id="office-conn-label">INIT</span>
-      </div>
-    </div>
-    <div style="flex:1;position:relative;overflow:hidden;background:#06060f">
-      <iframe
-        id="office-iframe"
-        src="./oracle-office/index.html"
-        style="width:100%;height:100%;border:none;background:#06060f;display:block"
-        allow="autoplay"
-        loading="lazy"
-        title="Oracle Office"
-      ></iframe>
-    </div>
+  <div class="screen" id="screen-office" style="bottom:var(--nav-h)">
+    <iframe
+      id="office-iframe"
+      src="./oracle-office/index.html"
+      style="width:100%;height:100%;border:none;background:#06060f;display:block;flex:1"
+      allow="autoplay"
+      loading="lazy"
+      title="Oracle Office"
+    ></iframe>
   </div>
 
   <!-- ======== BOTTOM NAV ======== -->
