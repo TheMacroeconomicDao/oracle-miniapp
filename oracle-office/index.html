@@ -1202,8 +1202,10 @@ class OracleOfficeApp {
       document.getElementById('conn-label').style.color='#34C759';
     } else {
       this.connected=false;
-      document.getElementById('conn-dot').style.background='#FF9F0A';
-      document.getElementById('conn-label').textContent='MOCK';
+      document.getElementById('conn-dot').style.background='#FF453A';
+      document.getElementById('conn-dot').style.boxShadow='0 0 6px #FF453A';
+      document.getElementById('conn-label').textContent='OFFLINE';
+      document.getElementById('conn-label').style.color='#FF453A';
     }
 
     if (agents) {
