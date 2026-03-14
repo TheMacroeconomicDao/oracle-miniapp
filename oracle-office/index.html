@@ -148,7 +148,7 @@
         <div id="panel-sdot"></div>
         <span id="panel-stext"></span>
       </div>
-      <button id="panel-close">✕</button>
+      <button id="panel-close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div id="panel-activity" class="activity-bar" style="display:none">
       <div class="activity-pulse" id="panel-apulse"></div>
@@ -758,7 +758,14 @@ class Renderer {
       ctx.scale(s,s);
       ctx.font=`${Math.max(9,this.zoom*6)}px serif`;
       ctx.textAlign='center'; ctx.textBaseline='bottom';
-      ctx.fillText(ch.def.icon, cx*this.zoom, (cy-20+sit)*this.zoom);
+      // Рисуем инициал агента вместо emoji
+      ctx.font = `bold ${Math.max(7, 9*this.zoom)}px -apple-system,sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = ch.def.color;
+      ctx.globalAlpha = 0.9;
+      ctx.fillText(ch.def.name[0], cx*this.zoom, (cy-20+sit)*this.zoom);
+      ctx.globalAlpha = 1.0;
       ctx.restore();
     }
 
@@ -976,7 +983,7 @@ class OracleOfficeApp {
       chip.id=`chip-${a.id}`;
       chip.style.borderColor=a.color+'33';
       chip.style.color='rgba(255,255,255,0.4)';
-      chip.innerHTML=`<span>${a.icon}</span><span>${a.name}</span><div class="legend-dot" id="ldot-${a.id}" style="background:#333"></div>`;
+      chip.innerHTML=`<div style="width:8px;height:8px;border-radius:50%;background:${a.color};box-shadow:0 0 6px ${a.color}66;flex-shrink:0"></div><span>${a.name}</span><div class="legend-dot" id="ldot-${a.id}" style="background:#333"></div>`;
       chip.addEventListener('click', ()=>this._selectAgent(a.id));
       legend.appendChild(chip);
     }
@@ -1143,7 +1150,11 @@ class OracleOfficeApp {
     document.getElementById('panel').style.borderTopColor=color+'44';
     document.getElementById('panel-icon').style.background=color+'22';
     document.getElementById('panel-icon').style.border=`1px solid ${color}44`;
-    document.getElementById('panel-icon').textContent=def.icon;
+    const panelIcon = document.getElementById('panel-icon');
+    panelIcon.textContent = '';
+    panelIcon.style.background = def.color + '22';
+    panelIcon.style.border = '1.5px solid ' + def.color + '55';
+    panelIcon.innerHTML = `<span style="font-size:18px;font-weight:700;color:${def.color}">${def.name[0]}</span>`;
     document.getElementById('panel-name').textContent=def.name;
     document.getElementById('panel-domain').textContent=def.domain;
 
