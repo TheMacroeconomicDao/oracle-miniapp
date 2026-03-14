@@ -488,6 +488,18 @@ class Renderer {
     this.canvas.height = Math.round(h * dpr);
     this.W = this.canvas.width;
     this.H = this.canvas.height;
+    // Auto-fit zoom so map fills screen
+    this._autoFit(w, h);
+  }
+
+  _autoFit(w, h) {
+    const dpr = window.devicePixelRatio || 1;
+    const mapW = COLS * TILE, mapH = ROWS * TILE;
+    const scaleX = (w * dpr) / mapW;
+    const scaleY = (h * dpr) / mapH;
+    const fit = Math.max(scaleX, scaleY); // cover (не letterbox)
+    this.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, fit));
+    this.panX = 0; this.panY = 0;
   }
 
   render() {
@@ -514,7 +526,7 @@ class Renderer {
       const tile = layout.getTile(c, r);
       const px=c*TILE, py=r*TILE;
       if (tile===T.WALL) {
-        ctx.fillStyle = '#14142a';
+        ctx.fillStyle = '#1e1e3a';
         ctx.fillRect(px, py, TILE, TILE);
         // Top highlight
         ctx.fillStyle='rgba(100,210,255,0.07)';
@@ -524,10 +536,10 @@ class Renderer {
         ctx.fillRect(px, py, 1, TILE);
       } else if (tile===T.FLOOR) {
         const even=(r+c)%2===0;
-        ctx.fillStyle = even ? '#08081a' : '#0a0a1e';
+        ctx.fillStyle = even ? '#10102a' : '#13133a';
         ctx.fillRect(px, py, TILE, TILE);
         // Grid lines
-        ctx.strokeStyle='rgba(100,210,255,0.035)';
+        ctx.strokeStyle='rgba(100,210,255,0.08)';
         ctx.lineWidth=0.5;
         ctx.strokeRect(px+0.25,py+0.25,TILE-0.5,TILE-0.5);
       }
