@@ -1045,11 +1045,11 @@ let APP = {
   lastUpdate: null,
 };
 
-// ── Геттеры с fallback на mock-данные ────────────────────────────
-function getAgents()  { return APP.agents.length  ? APP.agents  : AGENTS_MOCK;  }
-function getGroups()  { return APP.groups.length  ? APP.groups  : GROUPS_MOCK;  }
-function getTasks()   { return APP.tasks.length   ? APP.tasks   : TASKS_MOCK;   }
-function getGraph()   { return APP.graph?.nodes?.length ? APP.graph : GRAPH; }
+// ── Геттеры — только реальные данные, без mock fallback ──────────
+function getAgents()  { return APP.agents || [];  }
+function getGroups()  { return APP.groups || [];  }
+function getTasks()   { return APP.tasks  || [];  }
+function getGraph()   { return APP.graph?.nodes?.length ? APP.graph : { nodes:[], links:[] }; }
 
 // ── Загрузка данных с API ────────────────────────────────────────
 async function loadAll() {
