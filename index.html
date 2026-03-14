@@ -575,10 +575,29 @@
 
     @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 
+    /* SSE live indicator */
+    #conn-badge {
+      position: fixed; top: 10px; right: 10px; z-index: 200;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #333; transition: background 0.4s, box-shadow 0.4s;
+      pointer-events: none;
+    }
+    #conn-badge.connected {
+      background: #34C759;
+      box-shadow: 0 0 8px #34C759, 0 0 16px rgba(52,199,89,0.4);
+      animation: sse-pulse 2s infinite;
+    }
+    @keyframes sse-pulse { 0%,100% { box-shadow: 0 0 8px #34C759; } 50% { box-shadow: 0 0 14px #34C759, 0 0 28px rgba(52,199,89,0.3); } }
+
+    /* Agent highlight */
+    @keyframes highlight-pulse { 0%,100% { box-shadow: none; } 50% { box-shadow: 0 0 0 2px var(--blue), 0 0 20px rgba(0,122,255,0.3); } }
+    .highlight-pulse { animation: highlight-pulse 0.5s ease 3; }
+
   </style>
 </head>
 
 <body>
+<div id="conn-badge" title="SSE: real-time connection"></div>
 <div id="app">
 
   <!-- ======== LOADING ======== -->
@@ -650,19 +669,49 @@
     <div class="screen-header">
       <div>
         <div class="screen-title">📊 Монитор</div>
-        <div class="screen-sub">Обновлено только что</div>
+        <div class="screen-sub" id="monitor-updated-sub">Обновлено только что</div>
       </div>
       <span class="badge b-ok"><span class="bdot"></span>Live</span>
     </div>
 
     <div class="scroll-content">
+
+      <!-- Live API metrics -->
+      <div class="section">
+        <div class="section-label">Live метрики</div>
+        <div class="metrics-grid">
+          <div class="card metric-card">
+            <div class="metric-label">Uptime</div>
+            <div class="metric-value grad-text" style="font-size:15px;margin-top:2px" id="live-uptime">—</div>
+            <div class="metric-sub">Время работы системы</div>
+          </div>
+          <div class="card metric-card">
+            <div class="metric-label">Субагенты</div>
+            <div class="metric-value" style="color:var(--blue)" id="live-subagents">—</div>
+            <div class="metric-sub">Активных прямо сейчас</div>
+          </div>
+        </div>
+        <div class="metrics-grid">
+          <div class="card metric-card">
+            <div class="metric-label">Заметок в Vault</div>
+            <div class="metric-value" style="color:var(--purple)" id="live-vault-notes">—</div>
+            <div class="metric-sub">Obsidian Knowledge Base</div>
+          </div>
+          <div class="card metric-card">
+            <div class="metric-label">Обновлено</div>
+            <div class="metric-value" style="color:var(--t2);font-size:14px;margin-top:4px" id="live-last-update">—</div>
+            <div class="metric-sub">Последний запрос к API</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Quick metrics -->
       <div class="section">
         <div class="section-label">Система</div>
         <div class="metrics-grid">
           <div class="card metric-card">
             <div class="metric-label">Модель</div>
-            <div class="metric-value grad-text" style="font-size:15px;margin-top:2px">Sonnet 4.6</div>
+            <div class="metric-value grad-text" style="font-size:15px;margin-top:2px" id="live-model">Sonnet 4.6</div>
             <div class="metric-sub">Anthropic Claude</div>
           </div>
           <div class="card metric-card">
@@ -742,6 +791,30 @@
     </div>
   </div>
 
+  <!-- ======== SCREEN: OFFICE ======== -->
+  <div class="screen" id="screen-office">
+    <div class="screen-header" style="padding:10px 16px;">
+      <div>
+        <div class="screen-title">🏢 Oracle Office</div>
+        <div class="screen-sub">Пиксельная визуализация агентов · Live</div>
+      </div>
+      <div id="office-conn" style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--t3)">
+        <div id="office-conn-dot" style="width:7px;height:7px;border-radius:50%;background:#333;transition:all 0.4s"></div>
+        <span id="office-conn-label">INIT</span>
+      </div>
+    </div>
+    <div style="flex:1;position:relative;overflow:hidden;background:#06060f">
+      <iframe
+        id="office-iframe"
+        src="./oracle-office/index.html"
+        style="width:100%;height:100%;border:none;background:#06060f;display:block"
+        allow="autoplay"
+        loading="lazy"
+        title="Oracle Office"
+      ></iframe>
+    </div>
+  </div>
+
   <!-- ======== BOTTOM NAV ======== -->
   <nav id="bottom-nav">
     <div class="nav-item active" data-s="graph">
@@ -762,6 +835,11 @@
     <div class="nav-item" data-s="tasks">
       <div class="nav-icon">🎯</div>
       <div class="nav-label">Задачи</div>
+      <div class="nav-dot"></div>
+    </div>
+    <div class="nav-item" data-s="office">
+      <div class="nav-icon">🏢</div>
+      <div class="nav-label">Офис</div>
       <div class="nav-dot"></div>
     </div>
   </nav>
@@ -827,6 +905,9 @@
    Architecture: Vanilla JS, D3.js v7, Telegram WebApp SDK
 ================================================================ */
 
+// ── API Base URL ─────────────────────────────────────────────────
+const API_BASE = 'https://oracle.gyber.org/oracle-api';
+
 // ── Telegram WebApp init ─────────────────────────────────────────
 const tg = window.Telegram?.WebApp;
 if (tg) {
@@ -843,8 +924,8 @@ const haptic = {
   error:   () => tg?.HapticFeedback?.notificationOccurred('error'),
 };
 
-// ── Data ─────────────────────────────────────────────────────────
-const AGENTS = [
+// ── Mock / Fallback Data ─────────────────────────────────────────
+const AGENTS_MOCK = [
   { id:'codeguard', name:'CodeGuard',      icon:'🛡️', color:'#007AFF',
     domain:'Статический анализ кода',
     desc:'OWASP Top 10, инъекции, хардкодные секреты, небезопасные паттерны',
@@ -867,7 +948,7 @@ const AGENTS = [
     status:'idle', lastRun:'2 ч. назад', findings:0 },
 ];
 
-let GROUPS = [
+const GROUPS_MOCK = [
   { id:'sg',    name:'Security Team', icon:'🔐', color:'#FF453A',
     agents:['codeguard','secrets','cicd','infra','vuln'],
     status:'partial', lastTask:'Full security audit openclaw-k8s', lastRun:'2 ч. назад' },
@@ -876,7 +957,7 @@ let GROUPS = [
     status:'idle', lastTask:'PR code review #42', lastRun:'1 день назад' },
 ];
 
-let TASKS = [
+const TASKS_MOCK = [
   { id:'t1', name:'Full security audit openclaw-k8s', group:'Security Team', gid:'sg',
     status:'partial', progress:80, time:'2 ч. назад', findings:10,
     results:[
@@ -899,7 +980,7 @@ let TASKS = [
     ]},
 ];
 
-const TIMELINE_DATA = [
+const TIMELINE_DATA_MOCK = [
   { icon:'🛡️', bg:'rgba(0,122,255,0.14)',
     title:'CodeGuard завершён', time:'2 ч. назад',
     desc:'3 находки (1 HIGH, 2 MEDIUM). Shell injection: deploy.sh:47.' },
@@ -917,7 +998,7 @@ const TIMELINE_DATA = [
     desc:'Оркестрация Security Team: 5 агентов запущены в параллель.' },
 ];
 
-// D3 graph data — vault knowledge nodes
+// D3 graph data — vault knowledge nodes (fallback)
 const GRAPH = {
   nodes: [
     // Theory — purple
@@ -959,7 +1040,285 @@ const GRAPH = {
 const CAT_COLOR = { theory:'#BF5AF2', project:'#007AFF', research:'#34C759', ai:'#64D2FF' };
 const CAT_GLOW  = { theory:'glow-p',  project:'glow-b',  research:'glow-g',  ai:'glow-c' };
 
-// ── State ─────────────────────────────────────────────────────────
+// ── Состояние приложения ─────────────────────────────────────────
+let APP = {
+  agents: [],
+  groups: [],
+  combinations: [],
+  recentRuns: [],
+  tasks: [],
+  graph: { nodes: [], links: [] },
+  status: null,
+  loading: false,
+  lastUpdate: null,
+};
+
+// ── Геттеры с fallback на mock-данные ────────────────────────────
+function getAgents()  { return APP.agents.length  ? APP.agents  : AGENTS_MOCK;  }
+function getGroups()  { return APP.groups.length  ? APP.groups  : GROUPS_MOCK;  }
+function getTasks()   { return APP.tasks.length   ? APP.tasks   : TASKS_MOCK;   }
+function getGraph()   { return APP.graph?.nodes?.length ? APP.graph : GRAPH; }
+
+// ── Загрузка данных с API ────────────────────────────────────────
+async function loadAll() {
+  if (APP.loading) return;
+  APP.loading = true;
+  const h = { 'Authorization': `tma ${encodeURIComponent(tg?.initData || '')}` };
+  try {
+    const [statusRes, agentsRes, tasksRes, graphRes] = await Promise.allSettled([
+      fetch(`${API_BASE}/api/status`,      { headers: h }).then(r => r.json()),
+      fetch(`${API_BASE}/api/agents`,      { headers: h }).then(r => r.json()),
+      fetch(`${API_BASE}/api/tasks`,       { headers: h }).then(r => r.json()),
+      fetch(`${API_BASE}/api/vault/graph`, { headers: h }).then(r => r.json()),
+    ]);
+
+    if (statusRes.status === 'fulfilled') APP.status = statusRes.value;
+    if (agentsRes.status === 'fulfilled') {
+      const d = agentsRes.value;
+      APP.agents      = d.agents      || [];
+      APP.groups      = d.groups      || [];
+      APP.combinations = d.combinations || [];
+      APP.recentRuns  = d.recentRuns  || [];
+    }
+    if (tasksRes.status === 'fulfilled') APP.tasks = tasksRes.value.tasks || [];
+    if (graphRes.status === 'fulfilled') APP.graph = graphRes.value;
+
+    APP.lastUpdate = Date.now();
+    renderAll();
+  } catch(e) {
+    console.error('loadAll error:', e);
+    // При ошибке рендерим с mock-данными
+    renderAll();
+  } finally {
+    APP.loading = false;
+  }
+}
+
+// ── SSE Real-time Connection ───────────────────────────────────────
+let sseConn = null;
+let sseReconnectTimer = null;
+let sseBackoff = 1000;
+
+function connectSSE() {
+  if (sseConn) { try { sseConn.close(); } catch {} }
+  clearTimeout(sseReconnectTimer);
+
+  try {
+    const es = new EventSource(`${API_BASE}/api/events`);
+    sseConn = es;
+
+    es.onopen = () => {
+      sseBackoff = 1000;
+      document.getElementById('conn-badge')?.classList.add('connected');
+      console.log('[SSE] Connected');
+    };
+
+    es.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        handleSSEEvent(msg);
+      } catch {}
+    };
+
+    es.onerror = () => {
+      es.close();
+      sseConn = null;
+      document.getElementById('conn-badge')?.classList.remove('connected');
+      sseReconnectTimer = setTimeout(connectSSE, Math.min(sseBackoff, 30000));
+      sseBackoff = Math.min(sseBackoff * 1.5, 30000);
+    };
+  } catch(e) {
+    console.warn('[SSE] Not available:', e.message);
+  }
+}
+
+function handleSSEEvent(msg) {
+  switch (msg.type) {
+    case 'agent:active': {
+      // Mark agent as running
+      const agent = APP.agents.find(a => a.runId === msg.runId || (msg.task||'').toLowerCase().includes((a.name||'').toLowerCase()));
+      if (agent) { agent.status = 'running'; renderAgents(); renderMonitor(); }
+      // Sync to oracle-office iframe
+      broadcastToOffice({ type: 'agent:active', runId: msg.runId, task: msg.task });
+      break;
+    }
+    case 'agent:idle': {
+      // Check if any agent was running this run
+      for (const a of APP.agents) {
+        if (a.runId === msg.runId) { a.status = 'idle'; a.runId = null; }
+      }
+      renderAgents(); renderMonitor();
+      broadcastToOffice({ type: 'agent:idle', runId: msg.runId });
+      break;
+    }
+    case 'task:start':
+    case 'task:update':
+    case 'task:dispatched': {
+      // Update task list
+      const idx = APP.tasks.findIndex(t => t.id === (msg.task?.id || msg.taskId));
+      if (idx >= 0) APP.tasks[idx] = { ...APP.tasks[idx], ...(msg.task || {}) };
+      else if (msg.task) APP.tasks.unshift(msg.task);
+      renderTasks();
+      // Sync to oracle-office
+      if (msg.type === 'task:dispatched') {
+        broadcastToOffice({ type: 'task:dispatched', groupId: msg.groupId, agentId: msg.agentId, label: msg.label, task: msg.task });
+      }
+      break;
+    }
+    case 'agent:result': {
+      // Task completed — show toast notification
+      showToast(
+        msg.status === 'error' ? '❌ Ошибка агента' : '✅ Задача выполнена',
+        msg.agentId ? `${msg.agentId} завершил работу` : '',
+        msg.status === 'error' ? 'error' : 'success'
+      );
+      renderTasks(); renderMonitor();
+      broadcastToOffice({ type: 'agent:idle', agentId: msg.agentId });
+      break;
+    }
+    case 'ping': break; // heartbeat
+  }
+}
+
+// ── Office iframe postMessage bridge ──────────────────────────────
+function broadcastToOffice(msg) {
+  const iframe = document.getElementById('office-iframe');
+  if (!iframe?.contentWindow) return;
+  try { iframe.contentWindow.postMessage({ source: 'oracle-miniapp', ...msg }, '*'); } catch {}
+}
+
+// Listen for messages FROM oracle-office (agent clicks etc)
+window.addEventListener('message', (e) => {
+  if (e.data?.source !== 'oracle-office') return;
+  if (e.data.type === 'agent:selected') {
+    // Navigate to agents screen and highlight the agent
+    navigate('agents');
+    highlightAgent(e.data.agentId);
+  }
+  if (e.data.type === 'task:dispatch') {
+    // Dispatch from office panel
+    triggerTask(null, e.data.task, e.data.agentId);
+  }
+});
+
+function highlightAgent(agentId) {
+  setTimeout(() => {
+    const el = document.querySelector(`[data-agent-id="${agentId}"]`);
+    if (el) { el.scrollIntoView({behavior:'smooth',block:'center'}); el.classList.add('highlight-pulse'); setTimeout(()=>el.classList.remove('highlight-pulse'),2000); }
+  }, 200);
+}
+
+// ── Toast Notifications ────────────────────────────────────────────
+let toastTimer = null;
+function showToast(title, body, type = 'info') {
+  let toast = document.getElementById('oracle-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'oracle-toast';
+    toast.style.cssText = `
+      position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-80px);
+      background:rgba(12,12,28,0.96);border:1px solid rgba(255,255,255,0.1);
+      border-radius:14px;padding:10px 16px;z-index:999;
+      display:flex;align-items:center;gap:10px;max-width:88vw;min-width:220px;
+      backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,0.5);
+      transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+      pointer-events:none;
+    `;
+    document.body.appendChild(toast);
+  }
+  const colors = { success:'#34C759', error:'#FF453A', info:'#64D2FF', warn:'#FF9F0A' };
+  const color = colors[type] || colors.info;
+  toast.style.borderColor = color + '44';
+  toast.style.boxShadow = `0 8px 32px rgba(0,0,0,0.5), 0 0 20px ${color}22`;
+  toast.innerHTML = `
+    <div style="width:8px;height:8px;border-radius:50%;background:${color};box-shadow:0 0 8px ${color};flex-shrink:0"></div>
+    <div>
+      <div style="font-size:13px;font-weight:600;color:#fff">${title}</div>
+      ${body?`<div style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:1px">${body}</div>`:''}
+    </div>
+  `;
+  clearTimeout(toastTimer);
+  requestAnimationFrame(() => { toast.style.transform = 'translateX(-50%) translateY(0)'; });
+  toastTimer = setTimeout(() => { toast.style.transform = 'translateX(-50%) translateY(-80px)'; }, 3500);
+
+  // Telegram haptic for important events
+  if (type === 'error') haptic.error?.();
+  else if (type === 'success') haptic.success?.();
+}
+
+// Fallback polling — every 30s (SSE handles real-time)
+setInterval(loadAll, 30000);
+
+// ── Функция triggerTask — отправка задачи на API ─────────────────
+async function triggerTask(groupId, taskText) {
+  const h = {
+    'Authorization': `tma ${encodeURIComponent(tg?.initData || '')}`,
+    'Content-Type': 'application/json'
+  };
+  const res = await fetch(`${API_BASE}/api/tasks`, {
+    method: 'POST',
+    headers: h,
+    body: JSON.stringify({ groupId, task: taskText })
+  });
+  return res.json();
+}
+
+// ── renderAll — централизованный рендер всех экранов ─────────────
+function renderAll() {
+  renderAgents();
+  renderMonitor();
+  renderTasks();
+  updateLiveMetrics();
+}
+
+// ── Обновление live-метрик в Monitor ────────────────────────────
+function updateLiveMetrics() {
+  const s = APP.status;
+
+  // Uptime
+  const uptimeEl = document.getElementById('live-uptime');
+  if (uptimeEl) uptimeEl.textContent = s?.system?.uptimeHuman || '—';
+
+  // Активные субагенты
+  const subEl = document.getElementById('live-subagents');
+  if (subEl) {
+    const count = s?.agents?.activeSubagents;
+    subEl.textContent = count !== undefined ? count : '—';
+    subEl.style.color = count > 0 ? 'var(--blue)' : 'var(--t2)';
+  }
+
+  // Заметок в vault
+  const vaultEl = document.getElementById('live-vault-notes');
+  if (vaultEl) vaultEl.textContent = s?.vault?.totalNotes !== undefined ? s.vault.totalNotes : '—';
+
+  // Последнее обновление
+  const updateEl = document.getElementById('live-last-update');
+  if (updateEl) {
+    if (APP.lastUpdate) {
+      const d = new Date(APP.lastUpdate);
+      updateEl.textContent = d.toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    } else {
+      updateEl.textContent = '—';
+    }
+  }
+
+  // Модель из APP.status
+  const modelEl = document.getElementById('live-model');
+  if (modelEl && s?.model) {
+    // Коротко: берём часть после последнего "/"
+    const parts = s.model.split('/');
+    modelEl.textContent = parts[parts.length - 1] || s.model;
+  }
+
+  // Подпись в хедере монитора
+  const monSubEl = document.getElementById('monitor-updated-sub');
+  if (monSubEl && APP.lastUpdate) {
+    const d = new Date(APP.lastUpdate);
+    monSubEl.textContent = `Обновлено в ${d.toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' })}`;
+  }
+}
+
+// ── State (локальный, не зависит от API) ─────────────────────────
 let curScreen = 'graph';
 let graphInited = false;
 let zoomRef = null;
@@ -979,6 +1338,7 @@ function navigate(id) {
   haptic.select();
 
   if (id === 'graph' && !graphInited) { setTimeout(initGraph, 80); graphInited = true; }
+  if (id === 'office') initOfficeScreen();
 }
 
 document.querySelectorAll('.nav-item').forEach(el => {
@@ -1055,16 +1415,21 @@ function initGraph() {
   zoomRef = d3.zoom().scaleExtent([0.25, 3]).on('zoom', ev => root.attr('transform', ev.transform));
   svgRef = svg.call(zoomRef);
 
-  // Data copies
-  const nodes = GRAPH.nodes.map(d => ({...d}));
-  const links = GRAPH.links.map(([s,t]) => ({ source:s, target:t }));
+  // Используем APP.graph если есть данные, иначе fallback на GRAPH
+  const graphData = getGraph();
+  const nodes = graphData.nodes.map(d => ({...d}));
+  const links = graphData.links.map(l => {
+    // Поддержка как массивов [source, target], так и объектов {source, target}
+    if (Array.isArray(l)) return { source: l[0], target: l[1] };
+    return { source: l.source, target: l.target };
+  });
 
   // Force simulation
   const sim = d3.forceSimulation(nodes)
     .force('link',    d3.forceLink(links).id(d=>d.id).distance(85).strength(0.4))
     .force('charge',  d3.forceManyBody().strength(-230))
     .force('center',  d3.forceCenter(W/2, H/2))
-    .force('collide', d3.forceCollide().radius(d => d.r + 18));
+    .force('collide', d3.forceCollide().radius(d => (d.r || 10) + 18));
 
   // Links
   const linkSel = root.append('g')
@@ -1086,25 +1451,25 @@ function initGraph() {
   // Outer pulse ring for active nodes
   nodeSel.filter(d=>d.pulse)
     .append('circle')
-    .attr('r', d=>d.r+9)
+    .attr('r', d=>(d.r||10)+9)
     .attr('fill','none')
-    .attr('stroke', d=>CAT_COLOR[d.cat])
+    .attr('stroke', d=>CAT_COLOR[d.cat] || '#64D2FF')
     .attr('stroke-width', 1)
     .attr('opacity', 0.35)
-    .attr('filter', d=>`url(#${CAT_GLOW[d.cat]})`);
+    .attr('filter', d=>`url(#${CAT_GLOW[d.cat] || 'glow-c'})`);
 
   // Main circles
   nodeSel.append('circle')
-    .attr('r', d=>d.r)
-    .attr('fill', d=>`${CAT_COLOR[d.cat]}1A`)
-    .attr('stroke', d=>CAT_COLOR[d.cat])
+    .attr('r', d=>d.r||10)
+    .attr('fill', d=>`${CAT_COLOR[d.cat] || '#64D2FF'}1A`)
+    .attr('stroke', d=>CAT_COLOR[d.cat] || '#64D2FF')
     .attr('stroke-width', d=>d.pulse?2:1.5)
-    .attr('filter', d=>`url(#${CAT_GLOW[d.cat]})`);
+    .attr('filter', d=>`url(#${CAT_GLOW[d.cat] || 'glow-c'})`);
 
   // Labels
   nodeSel.append('text')
     .text(d=>d.label)
-    .attr('dy', d=>d.r+13)
+    .attr('dy', d=>(d.r||10)+13)
     .attr('fill','rgba(255,255,255,0.65)')
     .attr('font-size','11px')
     .attr('text-anchor','middle')
@@ -1114,8 +1479,8 @@ function initGraph() {
   // Pulse animation
   function pulse() {
     nodeSel.filter(d=>d.pulse).select('circle')
-      .transition().duration(1300).ease(d3.easeSinInOut).attr('r', d=>d.r+3)
-      .transition().duration(1300).ease(d3.easeSinInOut).attr('r', d=>d.r)
+      .transition().duration(1300).ease(d3.easeSinInOut).attr('r', d=>(d.r||10)+3)
+      .transition().duration(1300).ease(d3.easeSinInOut).attr('r', d=>d.r||10)
       .on('end', pulse);
   }
   pulse();
@@ -1141,8 +1506,8 @@ function initGraph() {
 
 function showNodePanel(node) {
   const catNames = { theory:'Теория', project:'Проект', research:'Исследования', ai:'AI Agent' };
-  const color = CAT_COLOR[node.cat];
-  const tags = node.tags.map(t=>`<span class="tag">${t}</span>`).join('');
+  const color = CAT_COLOR[node.cat] || '#64D2FF';
+  const tags = (node.tags || []).map(t=>`<span class="tag">${t}</span>`).join('');
   const extra = node.cat === 'ai'
     ? `<button class="btn btn-primary btn-sm" onclick="navigate('agents');closeNodePanel()">→ К агентам</button>`
     : `<button class="btn btn-ghost btn-sm" onclick="closeNodePanel()">Открыть заметку</button>`;
@@ -1151,9 +1516,9 @@ function showNodePanel(node) {
     <div class="panel-title">${node.label}</div>
     <div class="panel-meta">
       <span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${color};box-shadow:0 0 8px ${color};margin-right:6px;vertical-align:middle"></span>
-      ${catNames[node.cat]}
+      ${catNames[node.cat] || node.cat || ''}
     </div>
-    <div class="panel-desc">${node.desc}</div>
+    <div class="panel-desc">${node.desc || ''}</div>
     <div class="tag-row">${tags}</div>
     <div class="panel-btns">
       <button class="btn btn-ghost btn-sm" onclick="closeNodePanel()">Закрыть</button>
@@ -1183,11 +1548,18 @@ document.getElementById('graph-reset').addEventListener('click', () => {
 function renderAgents() {
   renderGroups();
   renderAgentList();
+  // Обновляем подзаголовок
+  const groups = getGroups();
+  const agents = getAgents();
+  const subEl = document.getElementById('agents-sub');
+  if (subEl) subEl.textContent = `${groups.length} группы · ${agents.length} агентов`;
 }
 
 function renderGroups() {
-  document.getElementById('groups-list').innerHTML = GROUPS.map(g => {
-    const members = g.agents.map(id => AGENTS.find(a=>a.id===id)).filter(Boolean);
+  const groups = getGroups();
+  const agents = getAgents();
+  document.getElementById('groups-list').innerHTML = groups.map(g => {
+    const members = (g.agents || []).map(id => agents.find(a=>a.id===id)).filter(Boolean);
     const avs = members.slice(0,4).map(a =>
       `<div class="avatar" style="background:${a.color}25" title="${a.name}">${a.icon}</div>`
     ).join('');
@@ -1219,7 +1591,8 @@ function renderGroups() {
 }
 
 function renderAgentList() {
-  document.getElementById('agents-list').innerHTML = AGENTS.map(a => `
+  const agents = getAgents();
+  document.getElementById('agents-list').innerHTML = agents.map(a => `
     <div class="card agent-row" style="cursor:pointer" onclick="showAgentDetail('${a.id}')">
       <div class="agent-icon-wrap" style="background:${a.color}1A;border:1px solid ${a.color}30">
         <span style="font-size:20px">${a.icon}</span>
@@ -1236,7 +1609,8 @@ function renderAgentList() {
 }
 
 function showAgentDetail(id) {
-  const a = AGENTS.find(x=>x.id===id);
+  const agents = getAgents();
+  const a = agents.find(x=>x.id===id);
   if (!a) return;
   document.getElementById('detail-body').innerHTML = `
     <div class="flex-row gap-md mb-md">
@@ -1247,6 +1621,7 @@ function showAgentDetail(id) {
       </div>
     </div>
     ${badge(a.status)}
+
     <div style="font-size:14px;color:var(--t2);line-height:1.6;margin:14px 0">${a.desc}</div>
     <div class="detail-row"><span class="detail-key">Последний запуск</span><span class="detail-value">${a.lastRun}</span></div>
     <div class="detail-row"><span class="detail-key">Находки</span><span class="detail-value" style="color:${a.findings>0?'var(--orange)':'var(--green)'}">${a.findings}</span></div>
@@ -1256,9 +1631,10 @@ function showAgentDetail(id) {
 
 // Create group
 function openCreateGroup() {
+  const agents = getAgents();
   selectedAgents = new Set();
   document.getElementById('new-group-name').value = '';
-  document.getElementById('agent-pick-grid').innerHTML = AGENTS.map(a => `
+  document.getElementById('agent-pick-grid').innerHTML = agents.map(a => `
     <div class="agent-pick-item" data-id="${a.id}" onclick="toggleAgent('${a.id}')">
       <span class="agent-pick-icon">${a.icon}</span>
       <span class="agent-pick-name">${a.name}</span>
@@ -1279,11 +1655,17 @@ function saveGroup() {
   if (!name || selectedAgents.size === 0) return;
   const palette = ['#FF453A','#007AFF','#34C759','#FF9F0A','#BF5AF2','#64D2FF'];
   const icons   = ['🔮','🌀','💥','🧩','🎯','⚡','🔒','🧠'];
-  GROUPS.unshift({
+  const newGroup = {
     id: `g-${Date.now()}`, name, icon: icons[~~(Math.random()*icons.length)],
     color: palette[~~(Math.random()*palette.length)],
     agents: [...selectedAgents], status:'idle', lastTask:'Нет задач', lastRun:'Никогда'
-  });
+  };
+  // Добавляем в APP.groups (или в мок если APP пустой)
+  if (APP.groups.length) {
+    APP.groups.unshift(newGroup);
+  } else {
+    GROUPS_MOCK.unshift(newGroup);
+  }
   renderAgents();
   closeModal();
   haptic.success();
@@ -1298,7 +1680,8 @@ document.getElementById('save-group').addEventListener('click', saveGroup);
 // ================================================================
 
 function renderMonitor() {
-  document.getElementById('monitor-agents').innerHTML = AGENTS.map(a => `
+  const agents = getAgents();
+  document.getElementById('monitor-agents').innerHTML = agents.map(a => `
     <div class="status-row">
       <div class="sdot ${a.status}"></div>
       <span style="flex:1;font-size:14px">${a.icon} ${a.name}</span>
@@ -1306,16 +1689,21 @@ function renderMonitor() {
       ${badge(a.status)}
     </div>`).join('');
 
-  document.getElementById('timeline').innerHTML = TIMELINE_DATA.map((item,i) => `
+  // Если есть recentRuns из API — используем их, иначе TIMELINE_DATA_MOCK
+  const timelineData = APP.recentRuns.length ? APP.recentRuns : TIMELINE_DATA_MOCK;
+  document.getElementById('timeline').innerHTML = timelineData.map((item,i) => `
     <div class="timeline-item">
-      ${i < TIMELINE_DATA.length-1 ? '<div class="tl-line"></div>' : ''}
-      <div class="tl-dot" style="background:${item.bg}">${item.icon}</div>
+      ${i < timelineData.length-1 ? '<div class="tl-line"></div>' : ''}
+      <div class="tl-dot" style="background:${item.bg || 'rgba(100,210,255,0.14)'}">${item.icon || '🔬'}</div>
       <div class="tl-body">
         <div class="tl-title">${item.title}</div>
         <div class="tl-time">${item.time}</div>
-        <div class="tl-desc">${item.desc}</div>
+        <div class="tl-desc">${item.desc || ''}</div>
       </div>
     </div>`).join('');
+
+  // Обновляем live метрики
+  updateLiveMetrics();
 }
 
 // Animate context bar
@@ -1328,14 +1716,17 @@ function animCtx() {
 // ================================================================
 
 function renderTasks() {
+  const groups = getGroups();
+  const tasks  = getTasks();
+
   // Update group select
   const sel = document.getElementById('task-group-sel');
   sel.innerHTML = '<option value="">Выберите группу...</option>' +
-    GROUPS.map(g=>`<option value="${g.id}">${g.icon} ${g.name}</option>`).join('');
+    groups.map(g=>`<option value="${g.id}">${g.icon} ${g.name}</option>`).join('');
 
   const sevColor = {CRITICAL:'var(--red)',HIGH:'var(--orange)',MEDIUM:'var(--yellow)',LOW:'var(--t2)','—':'var(--t3)'};
 
-  document.getElementById('tasks-list').innerHTML = TASKS.map(t => {
+  document.getElementById('tasks-list').innerHTML = tasks.map(t => {
     const pc = t.status==='done' ? 'prog-green' : t.status==='partial' ? 'prog-blue' : 'prog-orange';
     return `
     <div class="card task-card" style="cursor:pointer" onclick="showTaskDetail('${t.id}')">
@@ -1354,10 +1745,11 @@ function renderTasks() {
 }
 
 function showTaskDetail(id) {
-  const t = TASKS.find(x=>x.id===id);
+  const tasks = getTasks();
+  const t = tasks.find(x=>x.id===id);
   if (!t) return;
   const sc = {CRITICAL:'var(--red)',HIGH:'var(--orange)',MEDIUM:'var(--yellow)',LOW:'var(--t2)','—':'var(--t3)'};
-  const rows = t.results.map(r=>`
+  const rows = (t.results || []).map(r=>`
     <div class="detail-row">
       <span class="detail-key">${r.a}</span>
       <div style="display:flex;gap:8px;align-items:center">
@@ -1391,12 +1783,14 @@ document.getElementById('btn-launch').addEventListener('click', () => { renderTa
 document.getElementById('cancel-launch').addEventListener('click', closeModal);
 document.getElementById('close-detail').addEventListener('click', closeModal);
 
-document.getElementById('run-task').addEventListener('click', () => {
+document.getElementById('run-task').addEventListener('click', async () => {
   const gid  = document.getElementById('task-group-sel').value;
   const desc = document.getElementById('task-desc').value.trim();
   if (!gid || !desc) return;
 
-  const g = GROUPS.find(x=>x.id===gid);
+  const groups = getGroups();
+  const agents = getAgents();
+  const g = groups.find(x=>x.id===gid);
   if (!g) return;
 
   const newTask = {
@@ -1404,17 +1798,26 @@ document.getElementById('run-task').addEventListener('click', () => {
     name: desc.length>55 ? desc.slice(0,55)+'…' : desc,
     group: g.name, gid,
     status:'running', progress:0, time:'Только что', findings:0,
-    results: g.agents.map(id => {
-      const a = AGENTS.find(x=>x.id===id);
+    results: (g.agents || []).map(id => {
+      const a = agents.find(x=>x.id===id);
       return { a: a?.name||id, s:'waiting', f:0, sev:'—' };
     })
   };
 
-  TASKS.unshift(newTask);
+  // Добавляем в APP.tasks или мок
+  if (APP.tasks.length) {
+    APP.tasks.unshift(newTask);
+  } else {
+    TASKS_MOCK.unshift(newTask);
+  }
+
   g.lastTask = newTask.name;
   g.lastRun  = 'Только что';
   g.status   = 'running';
-  g.agents.forEach(id => { const a=AGENTS.find(x=>x.id===id); if(a) a.status='running'; });
+  (g.agents || []).forEach(id => {
+    const a = agents.find(x=>x.id===id);
+    if(a) a.status = 'running';
+  });
 
   closeModal();
   document.getElementById('task-desc').value = '';
@@ -1424,7 +1827,14 @@ document.getElementById('run-task').addEventListener('click', () => {
   renderAgents();
   haptic.success();
 
-  // Simulate progress
+  // Отправляем задачу на API (fire and forget)
+  try {
+    await triggerTask(gid, desc);
+  } catch(e) {
+    console.warn('triggerTask API error (продолжаем локально):', e);
+  }
+
+  // Simulate progress locally
   simulateProgress(newTask, g);
 });
 
@@ -1434,8 +1844,9 @@ function simulateProgress(task, group) {
     if (task.progress >= 100) {
       task.status = 'done';
       group.status = 'idle';
-      group.agents.forEach(id => { const a=AGENTS.find(x=>x.id===id); if(a) a.status='idle'; });
-      task.results.forEach(r => r.s === 'waiting' || r.s === 'running' ? r.s = 'done' : null);
+      const agents = getAgents();
+      (group.agents || []).forEach(id => { const a=agents.find(x=>x.id===id); if(a) a.status='idle'; });
+      (task.results || []).forEach(r => r.s === 'waiting' || r.s === 'running' ? r.s = 'done' : null);
       clearInterval(iv);
       haptic.success();
     }
@@ -1443,6 +1854,50 @@ function simulateProgress(task, group) {
     if (curScreen==='monitor') renderMonitor();
     if (curScreen==='agents')  renderAgents();
   }, 1600);
+}
+
+// ================================================================
+// ORACLE OFFICE SCREEN
+// ================================================================
+
+let officeInited = false;
+let officeConnTimer = null;
+
+function initOfficeScreen() {
+  if (officeInited) return;
+  officeInited = true;
+
+  const iframe = document.getElementById('office-iframe');
+  if (!iframe) return;
+
+  // Lazy-load iframe when first navigated to
+  if (!iframe.src || iframe.src === window.location.href) {
+    iframe.src = './oracle-office/index.html';
+  }
+
+  // Sync connection state from oracle-api to header badge
+  officeConnTimer = setInterval(async () => {
+    try {
+      const r = await fetch('/oracle-api/api/status', { signal: AbortSignal.timeout(2000) });
+      const dot = document.getElementById('office-conn-dot');
+      const lbl = document.getElementById('office-conn-label');
+      if (r.ok) {
+        dot.style.background = '#34C759';
+        dot.style.boxShadow = '0 0 6px #34C759';
+        lbl.textContent = 'LIVE';
+        lbl.style.color = '#34C759';
+      } else {
+        dot.style.background = '#FF9F0A';
+        dot.style.boxShadow = 'none';
+        lbl.textContent = 'MOCK';
+        lbl.style.color = '#FF9F0A';
+      }
+    } catch {
+      const dot = document.getElementById('office-conn-dot');
+      dot.style.background = '#FF9F0A';
+      document.getElementById('office-conn-label').textContent = 'MOCK';
+    }
+  }, 3000);
 }
 
 // ================================================================
@@ -1458,6 +1913,9 @@ function init() {
   // Kick-off graph (it's the first screen)
   setTimeout(() => { initGraph(); graphInited = true; }, 250);
 
+  // Start SSE real-time connection
+  setTimeout(connectSSE, 800);
+
   // Hide loading screen
   document.getElementById('load-fill').style.width = '100%';
   setTimeout(() => document.getElementById('loading').classList.add('gone'), 1700);
@@ -1465,9 +1923,17 @@ function init() {
 
 // Boot
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
+  document.addEventListener('DOMContentLoaded', () => {
+    init();
+    // Инициализация
+    loadAll();
+    navigate('graph');
+  });
 } else {
   init();
+  // Инициализация
+  loadAll();
+  navigate('graph');
 }
 </script>
 </body>
