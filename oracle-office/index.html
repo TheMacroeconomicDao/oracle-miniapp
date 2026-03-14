@@ -866,29 +866,42 @@ class OracleOfficeApp {
     this._initEvents();
     this._startLoop();
     this._poll();
-    setInterval(() => this._poll(), POLL_MS);
+    // В iframe: данные через postMessage, polling только в standalone
+    if (window.parent === window) {
+      setInterval(() => this._poll(), POLL_MS);
+    } else {
+      // В iframe — разовый poll для инициализации, потом только postMessage
+      setTimeout(() => this._poll(), 2000);
+    }
     this._initSSE();
     this._initBridge();
   }
 
   // ── SSE Real-time connection ──────────────────────────────────────
   _initSSE() {
-    let backoff = 1000;
-    const connect = () => {
-      try {
-        const es = new EventSource(`${API_BASE}/api/events`);
-        es.onopen = () => { backoff = 1000; };
-        es.onmessage = (e) => {
-          try { this._handleSSE(JSON.parse(e.data)); } catch {}
-        };
-        es.onerror = () => {
-          es.close();
-          setTimeout(connect, Math.min(backoff, 30000));
-          backoff = Math.min(backoff * 1.5, 30000);
-        };
-      } catch {}
-    };
-    connect();
+    // SSE отключён в iframe — используем только postMessage от родителя
+    // Это предотвращает дублирование SSE-соединений (miniapp уже подключён)
+    // Для standalone-режима (не в iframe) — подключаемся напрямую
+    if (window.parent === window) {
+      // Standalone режим — своё SSE
+      let backoff = 1000;
+      const connect = () => {
+        try {
+          const es = new EventSource(`${API_BASE}/api/events`);
+          es.onopen = () => { backoff = 1000; };
+          es.onmessage = (e) => {
+            try { this._handleSSE(JSON.parse(e.data)); } catch {}
+          };
+          es.onerror = () => {
+            es.close();
+            setTimeout(connect, Math.min(backoff, 30000));
+            backoff = Math.min(backoff * 1.5, 30000);
+          };
+        } catch {}
+      };
+      connect();
+    }
+    // В iframe: SSE данные приходят через postMessage от родителя
   }
 
   _handleSSE(msg) {
